@@ -1,0 +1,14 @@
+{
+  "name": "Onyx · פארק כלבים חברתי",
+  "short_name": "Onyx",
+  "description": "מפת פארקי כלבים ארצית, חברים לכלב, אקדמיה ומד שמחה",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1faf0",
+  "theme_color": "#3ea033",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "/paw.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

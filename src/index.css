@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Rubik', system-ui, sans-serif;
+  background: #f1faf0;
+  color: #1d431b;
+  overscroll-behavior-y: none;
+}
+
+/* Leaflet marker fix in bundlers + rounded controls */
+.leaflet-container {
+  font-family: 'Rubik', sans-serif;
+  background: #dcf2d9;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 16px;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-3xl shadow-sm border border-park-100 p-4;
+  }
+  .btn {
+    @apply rounded-2xl px-4 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-park-500 text-white shadow-sm;
+  }
+  .btn-soft {
+    @apply btn bg-park-100 text-park-800;
+  }
+  .btn-ghost {
+    @apply btn bg-white border border-park-200 text-park-700;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium;
+  }
+}
+
+/* Floating dog circles animation */
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-floaty {
+  animation: floaty 3s ease-in-out infinite;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+  animation: pop 0.18s ease-out;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem); }

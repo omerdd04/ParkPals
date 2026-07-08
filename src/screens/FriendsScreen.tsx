@@ -1,0 +1,166 @@
+import { useEffect, useMemo, useState } from 'react'
+import QRCode from 'qrcode'
+import { presenceActive, useStore } from '../store'
+import { parkById } from '../data/parks'
+import type { Friend } from '../types'
+import { useNow } from '../ui/useNow'
+import DogAvatar from '../ui/DogAvatar'
+import Sheet from '../ui/Sheet'
+import QuickChat from './QuickChat'
+
+export default function FriendsScreen() {
+  const now = useNow(1000)
+  const owner = useStore((s) => s.owner)
+  const dog = useStore((s) => s.dog)
+  const friends = useStore((s) => s.friends)
+  const toggleFavorite = useStore((s) => s.toggleFavorite)
+  const addFriendByCode = useStore((s) => s.addFriendByCode)
+
+  const [myQr, setMyQr] = useState('')
+  const [showMyCode, setShowMyCode] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
+  const [addMsg, setAddMsg] = useState<{ ok: boolean; message: string } | null>(null)
+  const [chatFriend, setChatFriend] = useState<Friend | null>(null)
+
+  useEffect(() => {
+    if (owner.personalCode) {
+      QRCode.toDataURL(`onyx://friend/${owner.personalCode}`, {
+        width: 240, margin: 1, color: { dark: '#21521e', light: '#ffffff' },
+      }).then(setMyQr)
+    }
+  }, [owner.personalCode])
+
+  const favorites = friends.filter((f) => f.favorite)
+  const others = friends.filter((f) => !f.favorite)
+
+  const liveMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const f of friends) {
+      if (f.presence && presenceActive(f.presence, now)) {
+        const park = parkById(f.presence.parkId)
+        m.set(f.id, f.presence.kind === 'heading' ? `בדרך ל${park?.name ?? 'פארק'}` : `בפארק ${park?.name ?? ''}`)
+      }
+    }
+    return m
+  }, [friends, now])
+
+  function handleAdd() {
+    const res = addFriendByCode(codeInput)
+    setAddMsg(res)
+    if (res.ok) setCodeInput('')
+  }
+
+  function FriendRow({ f }: { f: Friend }) {
+    const live = liveMap.get(f.id)
+    return (
+      <div className="card !p-3 flex items-center gap-3">
+        <button onClick={() => setChatFriend(f)}>
+          <DogAvatar photo={f.dogPhoto} size={48} ring={live ? (f.presence?.kind === 'heading' ? 'heading' : 'live') : f.favorite ? 'favorite' : 'none'} />
+        </button>
+        <div className="flex-1 min-w-0" onClick={() => setChatFriend(f)}>
+          <div className="font-bold text-park-800">{f.dogName}</div>
+          <div className="text-xs text-park-500 truncate">
+            {f.ownerName} · {f.city}
+            {live && <span className="text-park-600 font-semibold"> · {live}</span>}
+          </div>
+        </div>
+        <button
+          onClick={() => toggleFavorite(f.id)}
+          className={`h-9 w-9 grid place-items-center rounded-full text-lg ${f.favorite ? 'bg-pink-100' : 'bg-park-50'}`}
+          title="חבר מועדף"
+        >
+          {f.favorite ? '⭐' : '☆'}
+        </button>
+        <button onClick={() => setChatFriend(f)} className="h-9 w-9 grid place-items-center rounded-full bg-park-100 text-lg">
+          💬
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full overflow-y-auto no-scrollbar px-4 pt-3 pb-6 space-y-4">
+      <h1 className="text-lg font-extrabold text-park-800">חברים לכלב</h1>
+
+      {/* My code card */}
+      <div className="card bg-gradient-to-br from-park-500 to-park-600 !border-0 text-white">
+        <div className="flex items-center gap-3">
+          <DogAvatar photo={dog.photo} size={52} ring="none" className="!bg-white/20" />
+          <div className="flex-1">
+            <div className="font-bold text-lg">{dog.name || 'הכלב שלי'}</div>
+            <div className="text-white/80 text-sm">הקוד האישי שלך</div>
+            <div className="font-mono text-xl tracking-wider mt-0.5">{owner.personalCode}</div>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button className="bg-white text-park-700 btn !py-2.5 font-semibold" onClick={() => setShowMyCode(true)}>
+            📷 הצג QR
+          </button>
+          <button className="bg-white/15 text-white btn !py-2.5 font-semibold" onClick={() => setShowAdd(true)}>
+            ➕ הוסף חבר
+          </button>
+        </div>
+      </div>
+
+      {/* Favorites */}
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-bold text-park-800">⭐ מועדפים</h2>
+          <span className="text-xs text-park-500">מקבלים התראה כשהם יוצאים לפארק</span>
+        </div>
+        {favorites.length === 0 ? (
+          <p className="text-sm text-park-400">אין עדיין חברים מועדפים. הוסיפו ⭐ לחברים כדי לקבל מהם התראות אוטומטיות.</p>
+        ) : (
+          <div className="space-y-2">{favorites.map((f) => <FriendRow key={f.id} f={f} />)}</div>
+        )}
+      </section>
+
+      {/* Others */}
+      {others.length > 0 && (
+        <section>
+          <h2 className="font-bold text-park-800 mb-2">כל החברים</h2>
+          <p className="text-xs text-park-500 mb-2">
+            חברים לא-מועדפים צריכים לשלוח לך הזמנה מיוחדת כדי לתאם סיבוב.
+          </p>
+          <div className="space-y-2">{others.map((f) => <FriendRow key={f.id} f={f} />)}</div>
+        </section>
+      )}
+
+      {/* My QR sheet */}
+      <Sheet open={showMyCode} onClose={() => setShowMyCode(false)} title="שמרו אותי כחבר">
+        <div className="flex flex-col items-center gap-3 py-2">
+          {myQr && <img src={myQr} alt="QR" className="w-56 h-56 rounded-2xl border border-park-100" />}
+          <div className="font-mono text-2xl tracking-widest text-park-700">{owner.personalCode}</div>
+          <p className="text-sm text-park-500 text-center">
+            תנו לחבר לסרוק את הקוד — או להקליד את הקוד האישי — כדי לשמור אתכם.
+          </p>
+        </div>
+      </Sheet>
+
+      {/* Add friend sheet */}
+      <Sheet open={showAdd} onClose={() => { setShowAdd(false); setAddMsg(null) }} title="הוספת חבר">
+        <div className="space-y-3">
+          <p className="text-sm text-park-600">
+            הקלידו את הקוד האישי של החבר (בפורמט <span className="font-mono">ONX-XXXX</span>).
+            <br />סריקת QR זמינה באפליקציה המותקנת במכשיר.
+          </p>
+          <input
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+            placeholder="ONX-XXXX"
+            className="w-full rounded-2xl border border-park-200 p-3 font-mono text-lg tracking-widest text-center"
+          />
+          {addMsg && (
+            <div className={`text-sm rounded-xl p-2.5 ${addMsg.ok ? 'bg-park-100 text-park-700' : 'bg-pink-50 text-pink-700'}`}>
+              {addMsg.message}
+            </div>
+          )}
+          <button className="btn-primary w-full" onClick={handleAdd}>שמור חבר</button>
+        </div>
+      </Sheet>
+
+      <QuickChat friend={chatFriend} onClose={() => setChatFriend(null)} />
+    </div>
+  )
+}
