@@ -4,6 +4,15 @@
 
 :root {
   color-scheme: light;
+  /* Onyx 2.0 tokens */
+  --ground: #f5f7f4;
+  --card: #ffffff;
+  --ink: #14231a;
+  --muted: #6b7d70;
+  --line: #e7ede8;
+  --brand: #2d9c3a;
+  --brand-2: #8fd455;
+  --live: #ff5a86;
 }
 
 * {
@@ -18,60 +27,133 @@ body,
 
 body {
   margin: 0;
-  font-family: 'Rubik', system-ui, sans-serif;
-  background: #f1faf0;
-  color: #1d431b;
+  font-family: 'Rubik', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--ground);
+  color: var(--ink);
   overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Leaflet marker fix in bundlers + rounded controls */
 .leaflet-container {
-  font-family: 'Rubik', sans-serif;
-  background: #dcf2d9;
+  font-family: 'Rubik', system-ui, sans-serif;
+  background: #e9efe8;
 }
 .leaflet-popup-content-wrapper {
-  border-radius: 16px;
+  border-radius: 18px;
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-3xl shadow-sm border border-park-100 p-4;
+    @apply bg-white rounded-[26px] p-4;
+    box-shadow: 0 6px 22px rgba(20, 60, 30, 0.06), 0 1px 3px rgba(20, 60, 30, 0.04);
+    border: 1px solid var(--line);
   }
   .btn {
-    @apply rounded-2xl px-4 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-40;
+    @apply rounded-[18px] px-4 py-3 font-semibold transition-transform duration-150 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .btn-primary {
-    @apply btn bg-park-500 text-white shadow-sm;
+    @apply btn text-white;
+    background: linear-gradient(135deg, #4fb84a, var(--brand));
+    box-shadow: 0 6px 16px rgba(45, 156, 58, 0.28);
   }
   .btn-soft {
     @apply btn bg-park-100 text-park-800;
   }
   .btn-ghost {
-    @apply btn bg-white border border-park-200 text-park-700;
+    @apply btn bg-white text-park-700;
+    border: 1px solid var(--line);
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium;
   }
+  /* Gradient "story" ring used for live profile circles */
+  .story-ring {
+    @apply rounded-full p-[2.5px];
+    background: conic-gradient(from 210deg, #ff5a86, #ffb347, #8fd455, #2d9c3a, #ff5a86);
+  }
+  .story-ring--heading {
+    background: linear-gradient(135deg, #ffd074, #f59e0b);
+  }
+  .story-ring > div {
+    @apply rounded-full p-[2px] bg-white;
+  }
 }
 
-/* Floating dog circles animation */
+/* Floating / motion */
 @keyframes floaty {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
-.animate-floaty {
-  animation: floaty 3s ease-in-out infinite;
-}
+.animate-floaty { animation: floaty 3s ease-in-out infinite; }
 
 @keyframes pop {
-  0% { transform: scale(0.85); opacity: 0; }
+  0% { transform: scale(0.9); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
-.animate-pop {
-  animation: pop 0.18s ease-out;
+.animate-pop { animation: pop 0.18s ease-out; }
+
+@keyframes rise {
+  0% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-rise { animation: rise 0.25s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-floaty, .animate-pop, .animate-rise { animation: none; }
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem); }
+
+/* Map: live dog-photo circles floating over parks */
+.map-dog {
+  animation: floaty 3.4s ease-in-out infinite;
+}
+.map-dog__ring {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  padding: 2.5px;
+  background: conic-gradient(from 210deg, #ff5a86, #ffb347, #8fd455, #2d9c3a, #ff5a86);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+}
+.map-dog__ring--heading {
+  background: linear-gradient(135deg, #ffd074, #f59e0b);
+}
+.map-dog__inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: 22px;
+}
+.map-dog__inner img { width: 100%; height: 100%; object-fit: cover; }
+.map-dog__heart {
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  font-size: 15px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.3));
+}
+.map-dog__count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--live);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+}

@@ -10,17 +10,43 @@ import Sheet from '../ui/Sheet'
 import QuickChat from './QuickChat'
 import NotificationsButton from './NotificationsButton'
 
-function parkIcon(count: number, mine: boolean): L.DivIcon {
-  const badge =
-    count > 0
-      ? `<span style="position:absolute;top:-6px;right:-6px;background:#e0357a;color:#fff;border-radius:999px;min-width:18px;height:18px;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 4px;border:2px solid #fff">${count}</span>`
-      : ''
-  const ring = mine ? 'box-shadow:0 0 0 3px #3ea033;' : ''
+// Empty park: a simple tree pin.
+function parkIcon(mine: boolean): L.DivIcon {
+  const ring = mine ? 'box-shadow:0 0 0 3px #2d9c3a;' : ''
   return L.divIcon({
     className: '',
-    html: `<div style="position:relative"><div style="width:38px;height:38px;border-radius:50% 50% 50% 0;background:#fff;transform:rotate(-45deg);border:2px solid #3ea033;${ring}display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.25)"><span style="transform:rotate(45deg);font-size:18px">🌳</span></div>${badge}</div>`,
-    iconSize: [38, 38],
-    iconAnchor: [19, 38],
+    html: `<div style="position:relative"><div style="width:36px;height:36px;border-radius:50% 50% 50% 0;background:#fff;transform:rotate(-45deg);border:2px solid #2d9c3a;${ring}display:grid;place-items:center;box-shadow:0 3px 8px rgba(0,0,0,.22)"><span style="transform:rotate(45deg);font-size:17px">🌳</span></div></div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+  })
+}
+
+function avatarHTML(photo: string): string {
+  return photo.startsWith('data:')
+    ? `<img src="${photo}" alt=""/>`
+    : `<span>${photo}</span>`
+}
+
+// Park with live dogs: floating, overlapping profile circles (Instagram-style),
+// with a heart and an optional "+N". This is what shows over a busy park.
+function dogsIcon(dogs: Friend[], estimate: number): L.DivIcon {
+  const shown = dogs.slice(0, 3)
+  const circles = shown
+    .map((d, i) => {
+      const heading = d.presence?.kind === 'heading'
+      return `<div class="map-dog__ring${heading ? ' map-dog__ring--heading' : ''}" style="margin-inline-start:${i === 0 ? 0 : -16}px;position:relative;z-index:${9 - i}"><div class="map-dog__inner">${avatarHTML(d.dogPhoto)}</div></div>`
+    })
+    .join('')
+  const totalExtra = dogs.length - shown.length + estimate
+  const extra = totalExtra > 0
+    ? `<div style="margin-inline-start:-12px;z-index:1;width:34px;height:34px;border-radius:50%;background:#14231a;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,.25)">+${totalExtra}</div>`
+    : ''
+  const width = 46 + (shown.length - 1) * 30 + (totalExtra > 0 ? 26 : 0)
+  return L.divIcon({
+    className: '',
+    html: `<div class="map-dog" style="display:flex;align-items:center;position:relative">${circles}${extra}<span class="map-dog__heart">💚</span></div>`,
+    iconSize: [width, 52],
+    iconAnchor: [width / 2, 46],
   })
 }
 
@@ -107,11 +133,11 @@ export default function MapScreen() {
 
   return (
     <div className="h-full flex flex-col relative">
-      <div className="px-4 pt-3 pb-2 bg-park-50 z-[500]">
+      <div className="px-4 pt-3 pb-2 bg-[var(--ground)] z-[500]">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs text-park-500">שלום {owner.name} {dog.photo.startsWith('data:') ? '🐾' : dog.photo}</div>
-            <h1 className="text-lg font-extrabold text-park-800">פארקים לידך</h1>
+            <div className="text-xs text-[var(--muted)]">שלום {owner.name} {dog.photo.startsWith('data:') ? '🐾' : dog.photo}</div>
+            <h1 className="text-xl font-extrabold tracking-tight text-[var(--ink)]">פארקים לידך</h1>
           </div>
           <NotificationsButton />
         </div>
@@ -123,11 +149,8 @@ export default function MapScreen() {
               return (
                 <button key={f.id} onClick={() => setChatFriend(f)} className="shrink-0 flex flex-col items-center gap-1 animate-floaty relative" style={{ animationDelay: `${(f.id.charCodeAt(0) % 5) * 0.3}s` }}>
                   <div className="relative">
-                    {/* Instagram-style gradient story ring */}
-                    <div className="rounded-full p-[3px]" style={{ background: heading ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'linear-gradient(135deg,#e0357a,#f59e0b,#3ea033)' }}>
-                      <div className="rounded-full p-[2px] bg-park-50">
-                        <DogAvatar photo={f.dogPhoto} size={48} ring="none" />
-                      </div>
+                    <div className={`story-ring ${heading ? 'story-ring--heading' : ''}`}>
+                      <div><DogAvatar photo={f.dogPhoto} size={48} ring="none" /></div>
                     </div>
                     <span className="absolute -bottom-1 -left-1 text-sm drop-shadow">{heading ? '🚶' : '💚'}</span>
                   </div>
@@ -141,14 +164,25 @@ export default function MapScreen() {
 
       <div className="flex-1 relative min-h-0">
         {mapReady && (
-          <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={13} className="absolute inset-0" zoomControl={false}>
+          <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false}>
             <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <KeepSized />
             <FlyTo target={flyTarget} />
-            <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} />
-            {PARKS.map((p) => (
-              <Marker key={p.id} position={[p.lat, p.lng]} icon={parkIcon(realCount(p.id), myPark?.id === p.id)} eventHandlers={{ click: () => setOpenPark(p) }} />
-            ))}
+            <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} zIndexOffset={1000} />
+            {PARKS.map((p) => {
+              const dogsHere = presenceByPark.get(p.id) ?? []
+              const est = busyEstimate(p.dailyVisitors, now)
+              const icon = dogsHere.length > 0 ? dogsIcon(dogsHere, est) : parkIcon(myPark?.id === p.id)
+              return (
+                <Marker
+                  key={p.id}
+                  position={[p.lat, p.lng]}
+                  icon={icon}
+                  zIndexOffset={dogsHere.length > 0 ? 500 : 0}
+                  eventHandlers={{ click: () => setOpenPark(p) }}
+                />
+              )
+            })}
           </MapContainer>
         )}
 
