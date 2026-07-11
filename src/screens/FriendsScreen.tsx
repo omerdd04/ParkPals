@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import QRCode from 'qrcode'
-import { presenceActive, useStore } from '../store'
+import { formatCode, presenceActive, scoreFrameColor, useStore } from '../store'
 import { parkById } from '../data/parks'
 import type { Friend } from '../types'
 import { useNow } from '../ui/useNow'
@@ -22,6 +22,8 @@ export default function FriendsScreen() {
   const [codeInput, setCodeInput] = useState('')
   const [addMsg, setAddMsg] = useState<{ ok: boolean; message: string } | null>(null)
   const [chatFriend, setChatFriend] = useState<Friend | null>(null)
+
+  const myFullCode = formatCode(owner.personalCode)
 
   useEffect(() => {
     if (owner.personalCode) {
@@ -53,10 +55,12 @@ export default function FriendsScreen() {
 
   function FriendRow({ f }: { f: Friend }) {
     const live = liveMap.get(f.id)
+    const frame = scoreFrameColor(f.score)
     return (
       <div className="card !p-3 flex items-center gap-3">
-        <button onClick={() => setChatFriend(f)}>
-          <DogAvatar photo={f.dogPhoto} size={48} ring={live ? (f.presence?.kind === 'heading' ? 'heading' : 'live') : f.favorite ? 'favorite' : 'none'} />
+        <button onClick={() => setChatFriend(f)} className="relative">
+          <DogAvatar photo={f.dogPhoto} size={48} ringColor={frame} />
+          {live && <span className="absolute -bottom-0.5 -left-0.5 h-3.5 w-3.5 rounded-full border-2 border-white" style={{ background: f.presence?.kind === 'heading' ? '#f59e0b' : '#3ea033' }} />}
         </button>
         <div className="flex-1 min-w-0" onClick={() => setChatFriend(f)}>
           <div className="font-bold text-park-800">{f.dogName}</div>
@@ -65,16 +69,10 @@ export default function FriendsScreen() {
             {live && <span className="text-park-600 font-semibold"> · {live}</span>}
           </div>
         </div>
-        <button
-          onClick={() => toggleFavorite(f.id)}
-          className={`h-9 w-9 grid place-items-center rounded-full text-lg ${f.favorite ? 'bg-pink-100' : 'bg-park-50'}`}
-          title="חבר מועדף"
-        >
+        <button onClick={() => toggleFavorite(f.id)} className={`h-9 w-9 grid place-items-center rounded-full text-lg ${f.favorite ? 'bg-pink-100' : 'bg-park-50'}`} title="חבר מועדף">
           {f.favorite ? '⭐' : '☆'}
         </button>
-        <button onClick={() => setChatFriend(f)} className="h-9 w-9 grid place-items-center rounded-full bg-park-100 text-lg">
-          💬
-        </button>
+        <button onClick={() => setChatFriend(f)} className="h-9 w-9 grid place-items-center rounded-full bg-park-100 text-lg">💬</button>
       </div>
     )
   }
@@ -83,27 +81,21 @@ export default function FriendsScreen() {
     <div className="h-full overflow-y-auto no-scrollbar px-4 pt-3 pb-6 space-y-4">
       <h1 className="text-lg font-extrabold text-park-800">חברים לכלב</h1>
 
-      {/* My code card */}
       <div className="card bg-gradient-to-br from-park-500 to-park-600 !border-0 text-white">
         <div className="flex items-center gap-3">
           <DogAvatar photo={dog.photo} size={52} ring="none" className="!bg-white/20" />
           <div className="flex-1">
             <div className="font-bold text-lg">{dog.name || 'הכלב שלי'}</div>
             <div className="text-white/80 text-sm">הקוד האישי שלך</div>
-            <div className="font-mono text-xl tracking-wider mt-0.5">{owner.personalCode}</div>
+            <div className="font-mono text-xl tracking-wider mt-0.5">{myFullCode}</div>
           </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button className="bg-white text-park-700 btn !py-2.5 font-semibold" onClick={() => setShowMyCode(true)}>
-            📷 הצג QR
-          </button>
-          <button className="bg-white/15 text-white btn !py-2.5 font-semibold" onClick={() => setShowAdd(true)}>
-            ➕ הוסף חבר
-          </button>
+          <button className="bg-white text-park-700 btn !py-2.5 font-semibold" onClick={() => setShowMyCode(true)}>📷 הצג QR</button>
+          <button className="bg-white/15 text-white btn !py-2.5 font-semibold" onClick={() => setShowAdd(true)}>➕ הוסף חבר</button>
         </div>
       </div>
 
-      {/* Favorites */}
       <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-bold text-park-800">⭐ מועדפים</h2>
@@ -116,47 +108,42 @@ export default function FriendsScreen() {
         )}
       </section>
 
-      {/* Others */}
       {others.length > 0 && (
         <section>
           <h2 className="font-bold text-park-800 mb-2">כל החברים</h2>
-          <p className="text-xs text-park-500 mb-2">
-            חברים לא-מועדפים צריכים לשלוח לך הזמנה מיוחדת כדי לתאם סיבוב.
-          </p>
+          <div className="rounded-2xl bg-park-50 border border-park-100 p-3 text-xs text-park-600 mb-2 leading-relaxed">
+            🔔 חברים שאינם מועדפים לא ישלחו לך התראה לטלפון — הם פשוט יופיעו כאן וגם על המפה כשהם בפארק,
+            כדי שלא תתפספסו אבל גם לא תוצפו. רוצים לקבל מהם התראות? הוסיפו ⭐.
+          </div>
           <div className="space-y-2">{others.map((f) => <FriendRow key={f.id} f={f} />)}</div>
         </section>
       )}
 
-      {/* My QR sheet */}
       <Sheet open={showMyCode} onClose={() => setShowMyCode(false)} title="שמרו אותי כחבר">
         <div className="flex flex-col items-center gap-3 py-2">
           {myQr && <img src={myQr} alt="QR" className="w-56 h-56 rounded-2xl border border-park-100" />}
-          <div className="font-mono text-2xl tracking-widest text-park-700">{owner.personalCode}</div>
-          <p className="text-sm text-park-500 text-center">
-            תנו לחבר לסרוק את הקוד — או להקליד את הקוד האישי — כדי לשמור אתכם.
-          </p>
+          <div className="font-mono text-2xl tracking-widest text-park-700">{myFullCode}</div>
+          <p className="text-sm text-park-500 text-center">תנו לחבר לסרוק את הקוד — או להקליד את הקוד האישי — כדי לשמור אתכם.</p>
         </div>
       </Sheet>
 
-      {/* Add friend sheet */}
       <Sheet open={showAdd} onClose={() => { setShowAdd(false); setAddMsg(null) }} title="הוספת חבר">
         <div className="space-y-3">
-          <p className="text-sm text-park-600">
-            הקלידו את הקוד האישי של החבר (בפורמט <span className="font-mono">ONX-XXXX</span>).
-            <br />סריקת QR זמינה באפליקציה המותקנת במכשיר.
-          </p>
-          <input
-            value={codeInput}
-            onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-            placeholder="ONX-XXXX"
-            className="w-full rounded-2xl border border-park-200 p-3 font-mono text-lg tracking-widest text-center"
-          />
+          <p className="text-sm text-park-600">הקלידו את 4 התווים של הקוד האישי — הקידומת <span className="font-mono">ONX-</span> נוספת לבד.</p>
+          <div className="flex items-center gap-2 rounded-2xl border border-park-200 p-2 pr-4">
+            <span className="font-mono text-lg text-park-400">ONX-</span>
+            <input
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
+              placeholder="XXXX"
+              maxLength={4}
+              className="flex-1 bg-transparent font-mono text-2xl tracking-[0.3em] text-center outline-none"
+            />
+          </div>
           {addMsg && (
-            <div className={`text-sm rounded-xl p-2.5 ${addMsg.ok ? 'bg-park-100 text-park-700' : 'bg-pink-50 text-pink-700'}`}>
-              {addMsg.message}
-            </div>
+            <div className={`text-sm rounded-xl p-2.5 ${addMsg.ok ? 'bg-park-100 text-park-700' : 'bg-pink-50 text-pink-700'}`}>{addMsg.message}</div>
           )}
-          <button className="btn-primary w-full" onClick={handleAdd}>שמור חבר</button>
+          <button className="btn-primary w-full" disabled={codeInput.length !== 4} onClick={handleAdd}>שמור חבר</button>
         </div>
       </Sheet>
 

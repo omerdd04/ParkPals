@@ -6,6 +6,7 @@ import FriendsScreen from './screens/FriendsScreen'
 import AcademyScreen from './screens/AcademyScreen'
 import DogScreen from './screens/DogScreen'
 import MoreScreen from './screens/MoreScreen'
+import Toast from './ui/Toast'
 
 export type Tab = 'map' | 'friends' | 'dog' | 'academy' | 'more'
 
@@ -25,6 +26,7 @@ export default function App() {
 
   return (
     <div className="mx-auto max-w-md h-full flex flex-col bg-park-50 relative">
+      <Toast />
       <main className="flex-1 overflow-hidden relative">
         {tab === 'map' && <MapScreen />}
         {tab === 'friends' && <FriendsScreen />}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../store'
+import { formatCode, useStore } from '../store'
 import { PARKS, CITIES } from '../data/parks'
 import Sheet from '../ui/Sheet'
 
@@ -42,7 +42,7 @@ export default function MoreScreen() {
         <div className="flex-1">
           <div className="font-bold text-park-800">{owner.name}</div>
           <div className="text-sm text-park-500">{dog.name} · {owner.city}{owner.neighborhood ? ` · ${owner.neighborhood}` : ''}</div>
-          <div className="font-mono text-sm text-park-600 mt-0.5">{owner.personalCode}</div>
+          <div className="font-mono text-sm text-park-600 mt-0.5">{formatCode(owner.personalCode)}</div>
         </div>
       </div>
 

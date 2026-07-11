@@ -11,10 +11,12 @@ export interface DogProfile {
   energy: DogEnergy
   gender: 'male' | 'female'
   neutered: boolean
-  photo: string // emoji or data-url; we default to emoji avatars
-  favoriteToy: string
-  favoriteTreat: string
-  knownExercises: string[]
+  photo: string // emoji or data-url (real uploaded photo)
+  tricks: string[] // trick ids from the catalog
+  treats: string[]
+  toys: string[]
+  favorites: string[]
+  traits: string[]
 }
 
 export interface OwnerProfile {
@@ -28,12 +30,14 @@ export interface Park {
   id: string
   name: string
   city: string
+  area?: string // e.g. "רובע ד'" for neighborhood-level parks
   lat: number
   lng: number
   fenced: boolean
   hasWater: boolean
   size: 'small' | 'medium' | 'large'
   source: 'municipal' | 'osm'
+  dailyVisitors: number // approx dogs that pass through on an average day (drives busy estimate)
 }
 
 export type PresenceKind = 'at_park' | 'heading' // at park now, or heading in 15 min
@@ -52,8 +56,9 @@ export interface Friend {
   dogName: string
   dogPhoto: string
   city: string
-  personalCode: string
+  personalCode: string // raw 4-char code; display via formatCode()
   favorite: boolean
+  score?: number // average happiness, drives the photo frame color
   presence?: Presence // simulated live presence for demo
 }
 

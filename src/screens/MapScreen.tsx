@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { PARKS, parkById } from '../data/parks'
-import { presenceActive, presenceRemainingMs, useStore } from '../store'
+import { PARKS, parkById, distanceKm, DEFAULT_LOCATION } from '../data/parks'
+import { busyEstimate, presenceActive, presenceRemainingMs, useStore } from '../store'
 import type { Friend, Park } from '../types'
 import { useNow, formatCountdown } from '../ui/useNow'
 import DogAvatar from '../ui/DogAvatar'
@@ -10,9 +10,6 @@ import Sheet from '../ui/Sheet'
 import QuickChat from './QuickChat'
 import NotificationsButton from './NotificationsButton'
 
-const ISRAEL_CENTER: [number, number] = [31.9, 34.9]
-
-// Build a leaflet divIcon showing a park pin with the live dog count.
 function parkIcon(count: number, mine: boolean): L.DivIcon {
   const badge =
     count > 0
@@ -27,18 +24,24 @@ function parkIcon(count: number, mine: boolean): L.DivIcon {
   })
 }
 
+function meIcon(photoEmoji: string): L.DivIcon {
+  const inner = photoEmoji.startsWith('data:')
+    ? `<img src="${photoEmoji}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:20px">${photoEmoji}</span>`
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid #2563eb;display:grid;place-items:center;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3)">${inner}</div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  })
+}
+
 function FlyTo({ target }: { target: [number, number] | null }) {
   const map = useMap()
-  useEffect(() => {
-    if (target) map.flyTo(target, 15, { duration: 0.8 })
-  }, [map, target])
+  useEffect(() => { if (target) map.flyTo(target, 15, { duration: 0.8 }) }, [map, target])
   return null
 }
 
-// Keep Leaflet in sync with its container. Late layout shifts (a web font
-// finishing/failing to load, device rotation, sheet transitions) resize the
-// container after init; a ResizeObserver re-measures the moment that happens so
-// the projection never goes stale and markers stay put.
 function KeepSized() {
   const map = useMap()
   useEffect(() => {
@@ -47,10 +50,7 @@ function KeepSized() {
     const ro = new ResizeObserver(sync)
     ro.observe(el)
     window.addEventListener('resize', sync)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', sync)
-    }
+    return () => { ro.disconnect(); window.removeEventListener('resize', sync) }
   }, [map])
   return null
 }
@@ -62,32 +62,22 @@ export default function MapScreen() {
   const friends = useStore((s) => s.friends)
   const myPresence = useStore((s) => s.myPresence)
   const setPresence = useStore((s) => s.setPresence)
-  const clearPresence = useStore((s) => s.clearPresence)
+  const userLoc = useStore((s) => s.userLoc) ?? DEFAULT_LOCATION
 
   const [openPark, setOpenPark] = useState<Park | null>(null)
   const [statusSheet, setStatusSheet] = useState(false)
   const [chatFriend, setChatFriend] = useState<Friend | null>(null)
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
 
-  // Only mount Leaflet once the layout has settled — after web fonts resolve
-  // (they change the header height) and one animation frame — so it reads the
-  // correct container size at init instead of caching a stale one.
   const [mapReady, setMapReady] = useState(false)
   useEffect(() => {
     let cancelled = false
     const go = () => requestAnimationFrame(() => !cancelled && setMapReady(true))
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
-    if (fonts?.ready) {
-      fonts.ready.then(go)
-      // Fallback in case fonts never resolve (e.g. blocked network).
-      window.setTimeout(go, 600)
-    } else {
-      go()
-    }
+    if (fonts?.ready) { fonts.ready.then(go); window.setTimeout(go, 600) } else go()
     return () => { cancelled = true }
   }, [])
 
-  // Which friends are actively present, grouped by park.
   const presenceByPark = useMemo(() => {
     const map = new Map<string, Friend[]>()
     for (const f of friends) {
@@ -106,41 +96,42 @@ export default function MapScreen() {
   )
 
   const myPark = myPresence && presenceActive(myPresence, now) ? parkById(myPresence.parkId) : null
-  // include myself in count for my park
-  function countAt(parkId: string): number {
+  function realCount(parkId: string): number {
     let c = presenceByPark.get(parkId)?.length ?? 0
     if (myPark?.id === parkId && myPresence?.kind === 'at_park') c += 1
     return c
   }
+  function totalCount(park: Park): number {
+    return realCount(park.id) + busyEstimate(park.dailyVisitors, now)
+  }
 
   return (
     <div className="h-full flex flex-col relative">
-      {/* Header */}
       <div className="px-4 pt-3 pb-2 bg-park-50 z-[500]">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs text-park-500">שלום {owner.name} {dog.photo}</div>
+            <div className="text-xs text-park-500">שלום {owner.name} {dog.photo.startsWith('data:') ? '🐾' : dog.photo}</div>
             <h1 className="text-lg font-extrabold text-park-800">פארקים לידך</h1>
           </div>
           <NotificationsButton />
         </div>
 
-        {/* Floating dog circles — who's live right now */}
         {liveDogs.length > 0 && (
           <div className="mt-2 flex gap-3 overflow-x-auto no-scrollbar pb-1">
             {liveDogs.map((f) => {
               const heading = f.presence!.kind === 'heading'
               return (
-                <button
-                  key={f.id}
-                  onClick={() => setChatFriend(f)}
-                  className="shrink-0 flex flex-col items-center gap-1 animate-floaty"
-                  style={{ animationDelay: `${(f.id.charCodeAt(0) % 5) * 0.3}s` }}
-                >
-                  <DogAvatar photo={f.dogPhoto} size={52} ring={heading ? 'heading' : 'live'} />
-                  <span className="text-[10px] font-semibold text-park-700 max-w-[54px] truncate">
-                    {f.dogName}
-                  </span>
+                <button key={f.id} onClick={() => setChatFriend(f)} className="shrink-0 flex flex-col items-center gap-1 animate-floaty relative" style={{ animationDelay: `${(f.id.charCodeAt(0) % 5) * 0.3}s` }}>
+                  <div className="relative">
+                    {/* Instagram-style gradient story ring */}
+                    <div className="rounded-full p-[3px]" style={{ background: heading ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'linear-gradient(135deg,#e0357a,#f59e0b,#3ea033)' }}>
+                      <div className="rounded-full p-[2px] bg-park-50">
+                        <DogAvatar photo={f.dogPhoto} size={48} ring="none" />
+                      </div>
+                    </div>
+                    <span className="absolute -bottom-1 -left-1 text-sm drop-shadow">{heading ? '🚶' : '💚'}</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-park-700 max-w-[54px] truncate">{f.dogName}</span>
                 </button>
               )
             })}
@@ -148,85 +139,65 @@ export default function MapScreen() {
         )}
       </div>
 
-      {/* Map */}
       <div className="flex-1 relative min-h-0">
         {mapReady && (
-          <MapContainer center={ISRAEL_CENTER} zoom={8} className="absolute inset-0" zoomControl={false}>
-            <TileLayer
-              attribution='&copy; OpenStreetMap'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+          <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={13} className="absolute inset-0" zoomControl={false}>
+            <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <KeepSized />
             <FlyTo target={flyTarget} />
+            <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} />
             {PARKS.map((p) => (
-              <Marker
-                key={p.id}
-                position={[p.lat, p.lng]}
-                icon={parkIcon(countAt(p.id), myPark?.id === p.id)}
-                eventHandlers={{ click: () => setOpenPark(p) }}
-              />
+              <Marker key={p.id} position={[p.lat, p.lng]} icon={parkIcon(realCount(p.id), myPark?.id === p.id)} eventHandlers={{ click: () => setOpenPark(p) }} />
             ))}
           </MapContainer>
         )}
 
-        {/* My presence banner */}
         {myPark && myPresence && (
           <div className="absolute top-3 inset-x-3 z-[500] card !p-3 flex items-center gap-3 animate-pop">
             <span className="text-2xl">{myPresence.kind === 'heading' ? '🚶' : '🟢'}</span>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-park-800 truncate">
-                {myPresence.kind === 'heading' ? 'בדרך ל' : 'נמצא ב'}{myPark.name}
-              </div>
+              <div className="text-sm font-bold text-park-800 truncate">{myPresence.kind === 'heading' ? 'בדרך ל' : 'נמצא ב'}{myPark.name}</div>
               <div className="text-xs text-park-500">
-                נעלם בעוד {formatCountdown(presenceRemainingMs(myPresence, now))}
+                נעלם אוטומטית בעוד {formatCountdown(presenceRemainingMs(myPresence, now))}
                 {myPresence.sharesLocation ? ' · משתף מיקום 📍' : ''}
               </div>
             </div>
-            <button className="btn-ghost !py-2 !px-3 text-sm" onClick={clearPresence}>
-              כבה
-            </button>
           </div>
         )}
 
-        {/* FAB */}
-        <button
-          onClick={() => setStatusSheet(true)}
-          className="absolute bottom-4 left-4 z-[500] btn-primary !rounded-full !px-5 shadow-lg flex items-center gap-2"
-        >
+        <button onClick={() => setStatusSheet(true)} className="absolute bottom-4 left-4 z-[500] btn-primary !rounded-full !px-5 shadow-lg flex items-center gap-2">
           <span className="text-lg">🐾</span> אני יוצא לפארק
         </button>
       </div>
 
-      {/* Park detail sheet */}
       <Sheet open={!!openPark} onClose={() => setOpenPark(null)} title={openPark?.name}>
         {openPark && (
           <ParkDetail
             park={openPark}
             present={presenceByPark.get(openPark.id) ?? []}
+            estimate={busyEstimate(openPark.dailyVisitors, now)}
+            distance={distanceKm(userLoc.lat, userLoc.lng, openPark.lat, openPark.lng)}
             mineHere={myPark?.id === openPark.id}
             onSetStatus={(kind, shares) => {
               setPresence(openPark.id, kind, shares)
               setOpenPark(null)
               setFlyTarget([openPark.lat, openPark.lng])
             }}
-            onChat={(f) => {
-              setOpenPark(null)
-              setChatFriend(f)
-            }}
+            onChat={(f) => { setOpenPark(null); setChatFriend(f) }}
           />
         )}
       </Sheet>
 
-      {/* Status chooser (from FAB) */}
       <Sheet open={statusSheet} onClose={() => setStatusSheet(false)} title="לאיזה פארק?">
         <StatusChooser
+          userLoc={userLoc}
+          countOf={totalCount}
           onPick={(parkId, kind, shares) => {
             setPresence(parkId, kind, shares)
             setStatusSheet(false)
             const p = parkById(parkId)
             if (p) setFlyTarget([p.lat, p.lng])
           }}
-          homeCity={owner.city}
         />
       </Sheet>
 
@@ -236,10 +207,12 @@ export default function MapScreen() {
 }
 
 function ParkDetail({
-  park, present, mineHere, onSetStatus, onChat,
+  park, present, estimate, distance, mineHere, onSetStatus, onChat,
 }: {
   park: Park
   present: Friend[]
+  estimate: number
+  distance: number
   mineHere: boolean
   onSetStatus: (kind: 'at_park' | 'heading', shares: boolean) => void
   onChat: (f: Friend) => void
@@ -247,17 +220,22 @@ function ParkDetail({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 text-xs">
-        <span className="chip bg-park-100 text-park-700">{park.city}</span>
+        <span className="chip bg-park-100 text-park-700">{park.area ? `${park.city} · ${park.area}` : park.city}</span>
+        <span className="chip bg-park-100 text-park-700">📍 {distance < 1 ? `${Math.round(distance * 1000)} מ'` : `${distance.toFixed(1)} ק"מ`}</span>
         {park.fenced && <span className="chip bg-park-100 text-park-700">🚧 מגודר</span>}
         {park.hasWater && <span className="chip bg-park-100 text-park-700">💧 ברזייה</span>}
-        <span className="chip bg-park-100 text-park-700">
-          {park.size === 'large' ? 'גדול' : park.size === 'medium' ? 'בינוני' : 'קטן'}
-        </span>
+        <span className="chip bg-park-100 text-park-700">{park.size === 'large' ? 'גדול' : park.size === 'medium' ? 'בינוני' : 'קטן'}</span>
       </div>
+
+      {estimate > 0 && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+          🔥 שעת שיא — צפי עומס: ~{estimate} כלבים בשעה הקרובה
+        </div>
+      )}
 
       <div>
         <div className="text-sm font-semibold text-park-700 mb-2">
-          {present.length > 0 ? `${present.length} כלבים בפארק עכשיו` : 'אף אחד לא סימן שהוא בפארק כרגע'}
+          {present.length > 0 ? `${present.length} חברים בפארק עכשיו` : 'אף חבר לא סימן שהוא בפארק כרגע'}
         </div>
         <div className="flex flex-wrap gap-3">
           {present.map((f) => (
@@ -270,15 +248,9 @@ function ParkDetail({
       </div>
 
       <div className="border-t border-park-100 pt-3 space-y-2">
-        <button className="btn-primary w-full" onClick={() => onSetStatus('at_park', false)}>
-          🟢 אני בפארק עכשיו (נעלם אחרי שעה)
-        </button>
-        <button className="btn-soft w-full" onClick={() => onSetStatus('at_park', true)}>
-          📍 אני בפארק + שתף מיקום חי
-        </button>
-        <button className="btn-ghost w-full" onClick={() => onSetStatus('heading', false)}>
-          🚶 יוצא לכאן ב-15 הדקות הקרובות
-        </button>
+        <button className="btn-primary w-full" onClick={() => onSetStatus('at_park', false)}>🟢 אני בפארק עכשיו (נעלם אחרי שעה)</button>
+        <button className="btn-soft w-full" onClick={() => onSetStatus('at_park', true)}>📍 אני בפארק + שתף מיקום חי</button>
+        <button className="btn-ghost w-full" onClick={() => onSetStatus('heading', false)}>🚶 יוצא לכאן ב-15 הדקות הקרובות</button>
         {mineHere && <p className="text-center text-xs text-park-500">אתה כבר מסומן כאן ✓</p>}
       </div>
     </div>
@@ -286,43 +258,55 @@ function ParkDetail({
 }
 
 function StatusChooser({
-  onPick, homeCity,
+  userLoc, countOf, onPick,
 }: {
+  userLoc: { lat: number; lng: number }
+  countOf: (p: Park) => number
   onPick: (parkId: string, kind: 'at_park' | 'heading', shares: boolean) => void
-  homeCity: string
 }) {
-  const [city, setCity] = useState(homeCity || 'תל אביב')
   const [parkId, setParkId] = useState('')
-  const cityParks = PARKS.filter((p) => p.city === city)
-  const cities = Array.from(new Set(PARKS.map((p) => p.city)))
+
+  // Nearest park first, then by how many dogs are there now.
+  const ranked = useMemo(() => {
+    return PARKS.map((p) => ({
+      park: p,
+      dist: distanceKm(userLoc.lat, userLoc.lng, p.lat, p.lng),
+      count: countOf(p),
+    }))
+      .sort((a, b) => {
+        // closest wins first; within similar distance, more dogs wins
+        if (Math.abs(a.dist - b.dist) > 0.4) return a.dist - b.dist
+        return b.count - a.count
+      })
+      .slice(0, 8)
+  }, [userLoc, countOf])
 
   return (
     <div className="space-y-3">
-      <select className="w-full rounded-2xl border border-park-200 p-3" value={city} onChange={(e) => { setCity(e.target.value); setParkId('') }}>
-        {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-      </select>
-      <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
-        {cityParks.map((p) => (
+      <p className="text-sm text-park-600">הפארקים הכי קרובים אליך, לפי מרחק וכמה כלבים שם עכשיו:</p>
+      <div className="space-y-2 max-h-64 overflow-y-auto no-scrollbar">
+        {ranked.map(({ park, dist, count }, i) => (
           <button
-            key={p.id}
-            onClick={() => setParkId(p.id)}
-            className={`w-full text-start rounded-2xl border p-3 text-sm ${parkId === p.id ? 'border-park-500 bg-park-50' : 'border-park-200 bg-white'}`}
+            key={park.id}
+            onClick={() => setParkId(park.id)}
+            className={`w-full text-start rounded-2xl border p-3 flex items-center gap-3 ${parkId === park.id ? 'border-park-500 bg-park-50' : 'border-park-200 bg-white'}`}
           >
-            <div className="font-semibold text-park-800">{p.name}</div>
-            <div className="text-xs text-park-500">{p.fenced ? '🚧 מגודר · ' : ''}{p.hasWater ? '💧 ברזייה' : ''}</div>
+            {i === 0 && <span className="chip bg-park-500 text-white text-[10px] shrink-0">הכי קרוב</span>}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-park-800 truncate">{park.name}</div>
+              <div className="text-xs text-park-500">
+                📍 {dist < 1 ? `${Math.round(dist * 1000)} מ'` : `${dist.toFixed(1)} ק"מ`}
+                {park.fenced ? " · 🚧" : ''}{park.hasWater ? ' · 💧' : ''}
+              </div>
+            </div>
+            {count > 0 && <span className="chip bg-pink-100 text-pink-700 text-xs shrink-0">🐾 {count}</span>}
           </button>
         ))}
       </div>
       <div className="space-y-2 pt-1">
-        <button className="btn-primary w-full" disabled={!parkId} onClick={() => onPick(parkId, 'at_park', false)}>
-          🟢 אני בפארק עכשיו
-        </button>
-        <button className="btn-soft w-full" disabled={!parkId} onClick={() => onPick(parkId, 'at_park', true)}>
-          📍 בפארק + שתף מיקום
-        </button>
-        <button className="btn-ghost w-full" disabled={!parkId} onClick={() => onPick(parkId, 'heading', false)}>
-          🚶 יוצא לכיוון ב-15 דק'
-        </button>
+        <button className="btn-primary w-full" disabled={!parkId} onClick={() => onPick(parkId, 'at_park', false)}>🟢 אני בפארק עכשיו</button>
+        <button className="btn-soft w-full" disabled={!parkId} onClick={() => onPick(parkId, 'at_park', true)}>📍 בפארק + שתף מיקום</button>
+        <button className="btn-ghost w-full" disabled={!parkId} onClick={() => onPick(parkId, 'heading', false)}>🚶 יוצא לכיוון ב-15 דק'</button>
       </div>
     </div>
   )
