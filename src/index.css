@@ -136,6 +136,16 @@ body {
   border-radius: 8px;
 }
 
+/* Metallic prestige frames shimmer */
+@keyframes frameShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.frame-metallic {
+  background-size: 200% 200% !important;
+  animation: frameShimmer 3s linear infinite;
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

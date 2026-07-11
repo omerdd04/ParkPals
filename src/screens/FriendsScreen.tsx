@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import QRCode from 'qrcode'
-import { formatCode, presenceActive, scoreFrameColor, useStore } from '../store'
+import { formatCode, presenceActive, useStore } from '../store'
 import { parkById } from '../data/parks'
+import { frameForScore } from '../data/frames'
 import type { Friend } from '../types'
 import { useNow } from '../ui/useNow'
 import DogAvatar from '../ui/DogAvatar'
+import FramedAvatar from '../ui/FramedAvatar'
 import Sheet from '../ui/Sheet'
 import QuickChat from './QuickChat'
 
@@ -55,11 +57,11 @@ export default function FriendsScreen() {
 
   function FriendRow({ f }: { f: Friend }) {
     const live = liveMap.get(f.id)
-    const frame = scoreFrameColor(f.score)
+    const frame = frameForScore(f.score)
     return (
       <div className="card !p-3 flex items-center gap-3">
         <button onClick={() => setChatFriend(f)} className="relative">
-          <DogAvatar photo={f.dogPhoto} size={48} ringColor={frame} />
+          <FramedAvatar photo={f.dogPhoto} frame={frame} size={44} pad={2.5} />
           {live && <span className="absolute -bottom-0.5 -left-0.5 h-3.5 w-3.5 rounded-full border-2 border-white" style={{ background: f.presence?.kind === 'heading' ? '#f59e0b' : '#3ea033' }} />}
         </button>
         <div className="flex-1 min-w-0" onClick={() => setChatFriend(f)}>

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  happinessAverage, happinessLabel, happinessToday, levelFor, scoreFrameColor, useStore,
+  happinessAverage, happinessLabel, happinessToday, levelFor, useStore,
 } from '../store'
-import { TRICKS, TRICK_TIERS } from '../data/tricks'
+import { TRICKS, TRICK_TIERS, trickPoints } from '../data/tricks'
+import { FRAMES, frameForPoints, frameIndexForPoints, nextFrame, prestigePoints } from '../data/frames'
 import type { CareAction } from '../types'
 import { useNow } from '../ui/useNow'
-import DogAvatar from '../ui/DogAvatar'
+import FramedAvatar from '../ui/FramedAvatar'
 import Confetti from '../ui/Confetti'
+import Sheet from '../ui/Sheet'
 
 const CARE: { action: CareAction; emoji: string; label: string }[] = [
   { action: 'walk', emoji: '🦮', label: 'סיבוב' },
@@ -26,19 +28,41 @@ export default function DogScreen() {
   const academy = useStore((s) => s.academy)
   const logCare = useStore((s) => s.logCare)
 
+  const showToast = useStore((s) => s.showToast)
   const score = useMemo(() => happinessToday(log, now), [log, now])
   const avg = useMemo(() => happinessAverage(log, now), [log, now])
   const { mood, emoji } = happinessLabel(score)
   const lessonsDone = Object.values(academy).filter(Boolean).length
   const level = useMemo(() => levelFor(dog.tricks, lessonsDone), [dog.tricks, lessonsDone])
 
-  // Confetti when the dog crosses into "happy" (>=85).
+  // Prestige frame (collectible ladder friends can see).
+  const prestige = useMemo(
+    () => prestigePoints(trickPoints(dog.tricks), lessonsDone, avg),
+    [dog.tricks, lessonsDone, avg],
+  )
+  const frame = frameForPoints(prestige)
+  const next = nextFrame(prestige)
+  const [showFrames, setShowFrames] = useState(false)
+
   const [confetti, setConfetti] = useState(false)
   const prevScore = useRef(score)
+  const prevFrame = useRef(frameIndexForPoints(prestige))
+
+  // Confetti when the dog crosses into "happy" (>=85).
   useEffect(() => {
     if (prevScore.current < 85 && score >= 85) setConfetti(true)
     prevScore.current = score
   }, [score])
+
+  // Celebrate unlocking a new prestige frame.
+  useEffect(() => {
+    const idx = frameIndexForPoints(prestige)
+    if (idx > prevFrame.current) {
+      setConfetti(true)
+      showToast({ text: `פתחת מסגרת ${FRAMES[idx].name}! ${FRAMES[idx].emoji}`, photo: dog.photo })
+    }
+    prevFrame.current = idx
+  }, [prestige, showToast, dog.photo])
 
   const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0)
   const todayCounts = useMemo(() => {
@@ -50,7 +74,6 @@ export default function DogScreen() {
   const R = 54
   const C = 2 * Math.PI * R
   const dash = (score / 100) * C
-  const frame = scoreFrameColor(avg)
 
   const tricksByTier = useMemo(() => {
     const m: Record<string, number> = {}
@@ -75,21 +98,25 @@ export default function DogScreen() {
           </svg>
           <div className="absolute inset-0 grid place-items-center">
             <div className="flex flex-col items-center">
-              <DogAvatar photo={dog.photo} size={70} ringColor={frame} />
+              <FramedAvatar photo={dog.photo} frame={frame} size={62} />
               <div className="text-2xl font-extrabold text-park-700 mt-1">{score}</div>
             </div>
           </div>
         </div>
         <div className="text-lg font-bold text-park-800">{emoji} {mood}</div>
-        <div className="flex items-center gap-4 text-sm text-park-600">
-          <span>ממוצע שבועי: <b className="text-park-800">{avg}</b></span>
-          <span className="inline-flex items-center gap-1">
-            מסגרת <span className="inline-block w-3.5 h-3.5 rounded-full align-middle" style={{ background: frame }} />
-          </span>
-        </div>
-        <p className="text-xs text-park-500 text-center max-w-xs">
-          המסגרת הצבעונית מופיעה סביב התמונה שלך שהחברים רואים — ככל שהממוצע גבוה יותר, המסגרת יוקרתית יותר.
-        </p>
+        <span className="text-sm text-park-600">ממוצע שבועי: <b className="text-park-800">{avg}</b></span>
+
+        {/* Prestige frame — the collectible players want to climb */}
+        <button onClick={() => setShowFrames(true)} className="w-full mt-1 rounded-2xl border border-park-100 bg-park-50 p-3 flex items-center gap-3 active:scale-[0.99] transition">
+          <FramedAvatar photo={dog.photo} frame={frame} size={40} pad={2.5} />
+          <div className="flex-1 text-start">
+            <div className="text-sm font-bold text-park-800">מסגרת {frame.name} {frame.emoji}</div>
+            <div className="text-xs text-park-500">
+              {next ? `עוד ${next.min - prestige} נק' למסגרת ${next.name} ${next.emoji}` : 'המסגרת הכי יוקרתית — כל הכבוד! 🏆'}
+            </div>
+          </div>
+          <span className="text-park-400 text-xs font-semibold">איך משיגים?</span>
+        </button>
       </div>
 
       {/* Level / owner progress */}
@@ -140,7 +167,7 @@ export default function DogScreen() {
       {/* Dog card */}
       <section className="card">
         <div className="flex items-center gap-3">
-          <DogAvatar photo={dog.photo} size={56} ringColor={frame} />
+          <FramedAvatar photo={dog.photo} frame={frame} size={50} />
           <div>
             <div className="font-bold text-park-800">{dog.name}</div>
             <div className="text-sm text-park-500">{dog.breed} · {dog.ageYears} שנים · {dog.gender === 'male' ? 'זכר' : 'נקבה'}</div>
@@ -151,6 +178,36 @@ export default function DogScreen() {
         <ProfileChips title="🧸 צעצועים" items={dog.toys} />
         <ProfileChips title="💚 אוהב" items={dog.favorites} />
       </section>
+
+      {/* Frame ladder explanation */}
+      <Sheet open={showFrames} onClose={() => setShowFrames(false)} title="מסגרות הכלב 🖼️">
+        <p className="text-sm text-park-600 mb-4">
+          המסגרת עוטפת את תמונת הכלב שלך — <b>וכולם רואים אותה</b> בפארק וברשימת החברים.
+          זה חלק מהמשחק: ככל שתלמדו תרגילים, תסיימו שיעורים באקדמיה ותשמרו על כלב מאושר,
+          תעלו בסולם המסגרות עד היהלום 💎.
+        </p>
+        <div className="space-y-2">
+          {FRAMES.map((f) => {
+            const reached = prestige >= f.min
+            const current = frame.id === f.id
+            return (
+              <div key={f.id} className={`flex items-center gap-3 rounded-2xl p-2.5 border ${current ? 'border-park-400 bg-park-50' : 'border-park-100'}`}>
+                <FramedAvatar photo={reached ? dog.photo : '🐾'} frame={f} size={38} pad={2.5} />
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-park-800">מסגרת {f.name} {f.emoji}</div>
+                  <div className="text-xs text-park-500">{f.min === 0 ? 'מסגרת התחלה' : `${f.min} נקודות יוקרה`}</div>
+                </div>
+                {current ? <span className="chip bg-park-500 text-white text-[11px]">שלך עכשיו</span>
+                  : reached ? <span className="text-park-500 text-sm">✓</span>
+                  : <span className="text-park-300 text-lg">🔒</span>}
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-4 rounded-2xl bg-park-50 border border-park-100 p-3 text-xs text-park-600">
+          יש לך כרגע <b className="text-park-800">{prestige}</b> נקודות יוקרה — מכל תרגיל, שיעור וסיבוב מאושר 🐾
+        </div>
+      </Sheet>
     </div>
   )
 }

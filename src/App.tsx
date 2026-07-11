@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './store'
-import { DEFAULT_LOCATION } from './data/parks'
+import { cityCenter } from './data/parks'
 import Onboarding from './screens/Onboarding'
 import MapScreen from './screens/MapScreen'
 import FriendsScreen from './screens/FriendsScreen'
@@ -27,6 +27,7 @@ export default function App() {
   const userLoc = useStore((s) => s.userLoc)
   const setUserLoc = useStore((s) => s.setUserLoc)
   const settings = useStore((s) => s.settings)
+  const ownerCity = useStore((s) => s.owner.city)
   const [tab, setTab] = useState<Tab>('map')
 
   // Apply accessibility settings to the document root.
@@ -42,14 +43,15 @@ export default function App() {
   // accurate. Falls back to the default area silently if the browser declines.
   useEffect(() => {
     if (!onboarded) return
+    const fallback = cityCenter(ownerCity)
     if (!('geolocation' in navigator)) {
-      if (!userLoc) setUserLoc({ lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng })
+      if (!userLoc) setUserLoc(fallback)
       return
     }
     if (shareLocation || !userLoc) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => { if (!userLoc) setUserLoc({ lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng }) },
+        () => { if (!userLoc) setUserLoc(fallback) },
         { timeout: 6000, maximumAge: 60000 },
       )
     }

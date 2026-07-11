@@ -374,12 +374,3 @@ export function levelFor(trickIds: string[], lessonsDone = 0): LevelInfo {
   }
 }
 
-// Frame color a friend's photo gets based on their average happiness score.
-export function scoreFrameColor(score: number | undefined): string {
-  if (score == null) return '#e5e7eb'
-  if (score >= 85) return '#f59e0b'
-  if (score >= 70) return '#7c3aed'
-  if (score >= 55) return '#2563eb'
-  if (score >= 35) return '#3ea033'
-  return '#9ca3af'
-}

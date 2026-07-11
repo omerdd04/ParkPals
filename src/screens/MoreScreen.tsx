@@ -184,6 +184,14 @@ export default function MoreScreen() {
           </div>
 
           <div className="border-t border-park-100 pt-4">
+            <div className="text-sm font-bold text-park-800 mb-1">© זכויות יוצרים ומפה</div>
+            <p className="text-xs text-park-500 leading-relaxed">
+              נתוני המפה: © מתנדבי OpenStreetMap, ברישיון ODbL (openstreetmap.org/copyright).
+              רקע המפה המעוצב והאיורים — נוצרו על ידי {APP_NAME}. אימוג'ים באדיבות ספקי המערכת.
+            </p>
+          </div>
+
+          <div className="border-t border-park-100 pt-4">
             <div className="text-xs font-semibold text-park-500 mb-2">אזור אישי</div>
             <button onClick={() => { setShowSettings(false); setConfirmReset(true) }} className="text-sm text-pink-600 underline underline-offset-2">
               מחיקת חשבון ואיפוס

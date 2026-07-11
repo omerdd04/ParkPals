@@ -71,3 +71,14 @@ export function distanceKm(aLat: number, aLng: number, bLat: number, bLng: numbe
 // Default location for the demo: Ashdod, Rova Dalet — so "nearest park" is meaningful
 // even before the user grants real GPS access.
 export const DEFAULT_LOCATION = { lat: 31.7905, lng: 34.6455, label: "אשדוד · רובע ד'" }
+
+// When we don't have GPS, fall back to the center of the city the user typed in
+// onboarding, so someone in Tel Aviv sees Tel Aviv parks — not Ashdod.
+export function cityCenter(city: string | undefined): { lat: number; lng: number } {
+  if (!city) return { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng }
+  const inCity = PARKS.filter((p) => p.city === city.trim())
+  if (inCity.length === 0) return { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng }
+  const lat = inCity.reduce((s, p) => s + p.lat, 0) / inCity.length
+  const lng = inCity.reduce((s, p) => s + p.lng, 0) / inCity.length
+  return { lat, lng }
+}

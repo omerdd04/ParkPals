@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useStore, genPersonalCode } from '../store'
-import { DEFAULT_LOCATION } from '../data/parks'
+import { cityCenter } from '../data/parks'
 import { TRICKS, TRICK_TIERS } from '../data/tricks'
 import { TREAT_GROUPS, TOY_GROUPS, FAVORITE_GROUPS, TRAIT_GROUPS } from '../data/profileOptions'
 import type { DogEnergy, DogSize } from '../types'
@@ -82,6 +82,7 @@ export default function Onboarding() {
   }
 
   function requestLocation(share: boolean) {
+    const fallback = cityCenter(city) // use the city they typed, not a fixed default
     const finish = (loc: { lat: number; lng: number }) => {
       setUserLoc(loc)
       setShareLocation(share)
@@ -91,11 +92,11 @@ export default function Onboarding() {
     if (share && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => finish({ lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng }),
+        () => finish(fallback),
         { timeout: 6000 },
       )
     } else {
-      finish({ lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng })
+      finish(fallback)
     }
   }
 
