@@ -51,11 +51,33 @@ export default function Onboarding() {
     else if (!max || list.length < max) set([...list, v])
   }
 
+  const hasRealPhoto = photo.startsWith('data:')
+
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!file.type.startsWith('image/')) return
+    // Downscale to a small square before storing: keeps localStorage tiny, strips
+    // the original file, and normalizes to a clean JPEG data-URI.
     const reader = new FileReader()
-    reader.onload = () => setPhoto(String(reader.result))
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const S = 320
+        const canvas = document.createElement('canvas')
+        canvas.width = S
+        canvas.height = S
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { setPhoto(String(reader.result)); return }
+        const side = Math.min(img.width, img.height)
+        const sx = (img.width - side) / 2
+        const sy = (img.height - side) / 2
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, S, S)
+        setPhoto(canvas.toDataURL('image/jpeg', 0.85))
+      }
+      img.onerror = () => {}
+      img.src = String(reader.result)
+    }
     reader.readAsDataURL(file)
   }
 
@@ -98,7 +120,7 @@ export default function Onboarding() {
       <div className="px-6 pt-8 pb-3">
         <div className="flex items-center gap-2 text-park-700">
           <span className="text-3xl">🐾</span>
-          <span className="text-2xl font-extrabold">Onyx</span>
+          <span className="text-2xl font-extrabold">Dog parks</span>
         </div>
         {step > 0 && (
           <div className="mt-4 flex gap-1.5">
@@ -113,7 +135,7 @@ export default function Onboarding() {
         {step === 0 && (
           <div className="h-full flex flex-col justify-center text-center gap-4">
             <div className="text-6xl">🗺️🐕</div>
-            <h1 className="text-2xl font-extrabold text-park-800">ברוכים הבאים ל-Onyx</h1>
+            <h1 className="text-2xl font-extrabold text-park-800">ברוכים הבאים ל-Dog parks</h1>
             <p className="text-park-700 leading-relaxed">
               מוצאים פארקי כלבים לידכם, רואים איזה חברים בפארק עכשיו, מתאמים סיבובים
               בלחיצה אחת, ולומדים איך לגרום לכלב שלכם לחיות טוב יותר.
@@ -141,16 +163,30 @@ export default function Onboarding() {
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-park-800">הכירו לנו את הכלב</h2>
 
-            {/* Photo */}
+            {/* Photo — push a real gallery photo */}
             <div className="flex flex-col items-center gap-2">
-              <DogAvatar photo={photo} size={92} />
-              <div className="flex gap-2">
-                <button className="btn-soft !py-2 !px-3 text-sm" onClick={() => fileRef.current?.click()}>📷 העלה תמונה אמיתית</button>
-              </div>
+              <button onClick={() => fileRef.current?.click()} className="relative" aria-label="העלאת תמונת הכלב">
+                {hasRealPhoto ? (
+                  <DogAvatar photo={photo} size={104} ringColor="#2d9c3a" />
+                ) : (
+                  <div className="w-[104px] h-[104px] rounded-full grid place-items-center border-2 border-dashed border-park-300 bg-park-50">
+                    <div className="text-center">
+                      <div className="text-3xl">📷</div>
+                      <div className="text-[10px] font-semibold text-park-600 mt-0.5">הוסף תמונה</div>
+                    </div>
+                  </div>
+                )}
+                <span className="absolute bottom-0 left-0 h-8 w-8 rounded-full grid place-items-center text-white text-sm shadow-md" style={{ background: 'linear-gradient(135deg,#4fb84a,#2d9c3a)' }}>＋</span>
+              </button>
+              <button className="btn-primary !py-2 !px-4 text-sm" onClick={() => fileRef.current?.click()}>
+                {hasRealPhoto ? '📷 החלף תמונה' : '📷 העלה תמונה אמיתית מהגלריה'}
+              </button>
+              <p className="text-xs text-park-500 text-center max-w-[15rem]">כלב עם תמונה אמיתית מזוהה מהר יותר בפארק ומקבל יותר חברים 🐾</p>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
-              <div className="flex gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[11px] text-park-400">או אווטאר זמני:</span>
                 {DOG_AVATARS.map((a) => (
-                  <button key={a} onClick={() => setPhoto(a)} className={`h-10 w-10 rounded-full grid place-items-center text-xl border-2 ${photo === a ? 'border-park-500 bg-park-100' : 'border-park-200 bg-white'}`}>{a}</button>
+                  <button key={a} onClick={() => setPhoto(a)} className={`h-9 w-9 rounded-full grid place-items-center text-lg border-2 ${photo === a ? 'border-park-500 bg-park-100' : 'border-park-200 bg-white'}`}>{a}</button>
                 ))}
               </div>
             </div>
@@ -247,7 +283,7 @@ export default function Onboarding() {
       {/* Location permission */}
       <Sheet open={locSheet} onClose={() => requestLocation(false)} title="למצוא פארקים לידך 📍">
         <p className="text-park-700 leading-relaxed mb-4">
-          Onyx רוצה להשתמש במיקום כדי להראות לך את הפארק הכי קרוב ואיזה חברים נמצאים בו.
+          Dog parks רוצה להשתמש במיקום כדי להראות לך את הפארק הכי קרוב ואיזה חברים נמצאים בו.
           תמיד אתה בשליטה — שיתוף המיקום נדלק רק כשתבחר.
         </p>
         <div className="space-y-2">

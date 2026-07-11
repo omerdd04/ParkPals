@@ -21,10 +21,18 @@ function parkIcon(mine: boolean): L.DivIcon {
   })
 }
 
-function avatarHTML(photo: string): string {
-  return photo.startsWith('data:')
-    ? `<img src="${photo}" alt=""/>`
-    : `<span>${photo}</span>`
+// Leaflet divIcons take raw HTML strings (not JSX), so anything user-controlled
+// that flows in here must be sanitized — a crafted "photo" string could otherwise
+// inject markup. We only accept validated image data-URIs; everything else is
+// treated as text and HTML-escaped.
+function safeAvatarHTML(photo: string): string {
+  if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/.test(photo)) {
+    return `<img src="${photo}" alt=""/>`
+  }
+  const esc = photo.replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string),
+  )
+  return `<span>${esc}</span>`
 }
 
 // Park with live dogs: floating, overlapping profile circles (Instagram-style),
@@ -34,7 +42,7 @@ function dogsIcon(dogs: Friend[], estimate: number): L.DivIcon {
   const circles = shown
     .map((d, i) => {
       const heading = d.presence?.kind === 'heading'
-      return `<div class="map-dog__ring${heading ? ' map-dog__ring--heading' : ''}" style="margin-inline-start:${i === 0 ? 0 : -16}px;position:relative;z-index:${9 - i}"><div class="map-dog__inner">${avatarHTML(d.dogPhoto)}</div></div>`
+      return `<div class="map-dog__ring${heading ? ' map-dog__ring--heading' : ''}" style="margin-inline-start:${i === 0 ? 0 : -16}px;position:relative;z-index:${9 - i}"><div class="map-dog__inner">${safeAvatarHTML(d.dogPhoto)}</div></div>`
     })
     .join('')
   const totalExtra = dogs.length - shown.length + estimate
@@ -50,13 +58,10 @@ function dogsIcon(dogs: Friend[], estimate: number): L.DivIcon {
   })
 }
 
-function meIcon(photoEmoji: string): L.DivIcon {
-  const inner = photoEmoji.startsWith('data:')
-    ? `<img src="${photoEmoji}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
-    : `<span style="font-size:20px">${photoEmoji}</span>`
+function meIcon(photo: string): L.DivIcon {
   return L.divIcon({
     className: '',
-    html: `<div style="width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid #2563eb;display:grid;place-items:center;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3)">${inner}</div>`,
+    html: `<div class="map-dog__inner" style="width:40px;height:40px;border:3px solid #2563eb;box-shadow:0 2px 8px rgba(0,0,0,.3)">${safeAvatarHTML(photo)}</div>`,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
   })

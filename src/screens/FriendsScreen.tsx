@@ -27,7 +27,7 @@ export default function FriendsScreen() {
 
   useEffect(() => {
     if (owner.personalCode) {
-      QRCode.toDataURL(`onyx://friend/${owner.personalCode}`, {
+      QRCode.toDataURL(`dogparks://friend/${owner.personalCode}`, {
         width: 240, margin: 1, color: { dark: '#21521e', light: '#ffffff' },
       }).then(setMyQr)
     }
@@ -129,9 +129,9 @@ export default function FriendsScreen() {
 
       <Sheet open={showAdd} onClose={() => { setShowAdd(false); setAddMsg(null) }} title="הוספת חבר">
         <div className="space-y-3">
-          <p className="text-sm text-park-600">הקלידו את 4 התווים של הקוד האישי — הקידומת <span className="font-mono">ONX-</span> נוספת לבד.</p>
+          <p className="text-sm text-park-600">הקלידו את 4 התווים של הקוד האישי — הקידומת <span className="font-mono">DP-</span> נוספת לבד.</p>
           <div className="flex items-center gap-2 rounded-2xl border border-park-200 p-2 pr-4">
-            <span className="font-mono text-lg text-park-400">ONX-</span>
+            <span className="font-mono text-lg text-park-400">DP-</span>
             <input
               value={codeInput}
               onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}

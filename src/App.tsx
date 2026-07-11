@@ -19,12 +19,23 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'more', label: 'עוד', icon: '⚙️' },
 ]
 
+const TEXT_SCALE: Record<string, string> = { normal: '16px', large: '18px', xlarge: '20px' }
+
 export default function App() {
   const onboarded = useStore((s) => s.onboarded)
   const shareLocation = useStore((s) => s.shareLocation)
   const userLoc = useStore((s) => s.userLoc)
   const setUserLoc = useStore((s) => s.setUserLoc)
+  const settings = useStore((s) => s.settings)
   const [tab, setTab] = useState<Tab>('map')
+
+  // Apply accessibility settings to the document root.
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.fontSize = TEXT_SCALE[settings.textScale] ?? '16px'
+    root.classList.toggle('a11y-contrast', settings.highContrast)
+    root.classList.toggle('a11y-reduce-motion', settings.reduceMotion)
+  }, [settings])
 
   // Keep location working across sessions: once the app is entered, refresh the
   // position if sharing is on (or if we have none yet) so "nearest park" stays

@@ -103,6 +103,39 @@ body {
   .animate-floaty, .animate-pop, .animate-rise { animation: none; }
 }
 
+/* Accessibility: user-toggled reduce motion */
+.a11y-reduce-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Accessibility: high contrast — darker ink, stronger lines, no faint greys */
+.a11y-contrast {
+  --ink: #000000;
+  --muted: #2a382f;
+  --line: #7d8f83;
+}
+.a11y-contrast .card {
+  border-width: 2px;
+  box-shadow: none;
+}
+.a11y-contrast .text-park-400,
+.a11y-contrast .text-park-500 {
+  color: #2a382f !important;
+}
+.a11y-contrast .btn-ghost,
+.a11y-contrast .chip {
+  border-width: 2px;
+}
+
+/* Visible keyboard focus for accessibility */
+:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

@@ -1,0 +1,6 @@
+// App-wide configuration. Change these in one place.
+
+export const APP_NAME = 'Dog parks'
+
+// Where user feedback / partnership requests are sent (opens the user's mail app).
+export const CONTACT_EMAIL = 'omer31481@gmail.com'

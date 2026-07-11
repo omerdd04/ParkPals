@@ -25,7 +25,7 @@ function genCode(): string {
 }
 
 export function formatCode(raw: string): string {
-  return `ONX-${raw.toUpperCase()}`
+  return `DP-${raw.toUpperCase()}`
 }
 
 function uid(): string {
@@ -76,6 +76,14 @@ interface Toast {
   photo?: string
 }
 
+export type TextScale = 'normal' | 'large' | 'xlarge'
+export interface A11ySettings {
+  textScale: TextScale
+  highContrast: boolean
+  reduceMotion: boolean
+}
+const defaultSettings: A11ySettings = { textScale: 'normal', highContrast: false, reduceMotion: false }
+
 interface Store {
   onboarded: boolean
   owner: OwnerProfile
@@ -90,6 +98,7 @@ interface Store {
   complaints: Complaint[]
   notifications: AppNotification[]
   toast: Toast | null
+  settings: A11ySettings
 
   // actions
   completeOnboarding: (owner: OwnerProfile, dog: DogProfile) => void
@@ -106,6 +115,7 @@ interface Store {
   pushNotification: (n: Omit<AppNotification, 'id' | 'at' | 'read'>) => void
   showToast: (t: Omit<Toast, 'id'>) => void
   clearToast: () => void
+  setSettings: (patch: Partial<A11ySettings>) => void
   resetAll: () => void
 }
 
@@ -131,9 +141,10 @@ export const useStore = create<Store>()(
       academy: {},
       complaints: [],
       notifications: [
-        { id: uid(), text: 'ברוכים הבאים ל-Onyx! השלימו את מד השמחה של הכלב היום 🐾', at: Date.now(), read: false, kind: 'system' },
+        { id: uid(), text: 'ברוכים הבאים ל-Dog parks! השלימו את מד השמחה של הכלב היום 🐾', at: Date.now(), read: false, kind: 'system' },
       ],
       toast: null,
+      settings: defaultSettings,
 
       completeOnboarding: (owner, dog) =>
         set({
@@ -222,12 +233,14 @@ export const useStore = create<Store>()(
       showToast: (t) => set({ toast: { ...t, id: uid() } }),
       clearToast: () => set({ toast: null }),
 
+      setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+
       resetAll: () =>
         set({
           onboarded: false, owner: emptyOwner, dog: emptyDog, myPresence: null,
           shareLocation: false, userLoc: null,
           friends: seedFriends(), chats: [], happinessLog: [], academy: {}, complaints: [],
-          notifications: [], toast: null,
+          notifications: [], toast: null, settings: defaultSettings,
         }),
     }),
     {

@@ -24,7 +24,6 @@ export const TRICKS: Trick[] = [
   { id: 'leave', label: 'עזוב', tier: 'basic' },
   { id: 'drop', label: 'שחרר', tier: 'basic' },
   { id: 'wait', label: 'המתן', tier: 'basic' },
-  { id: 'paw', label: 'תן כפה', tier: 'basic' },
   { id: 'highfive', label: "כיף (High five)", tier: 'basic' },
   { id: 'speak', label: 'דבר (נביחה)', tier: 'basic' },
   // advanced

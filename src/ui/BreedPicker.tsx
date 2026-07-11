@@ -26,7 +26,15 @@ export default function BreedPicker({ value, onChange }: { value: string; onChan
           {list.map((b) => (
             <BreedChip key={b} b={b} on={value === b} onClick={() => onChange(b)} />
           ))}
-          {list.length === 0 && <div className="text-sm text-park-400">אין תוצאה — אפשר לבחור "מעורב"</div>}
+          {/* Never get stuck: let people add their exact breed as free text. */}
+          {!list.includes(query) && (
+            <button
+              onClick={() => onChange(query)}
+              className={`chip border ${value === query ? 'bg-park-500 text-white border-park-500' : 'bg-park-50 text-park-700 border-dashed border-park-300'}`}
+            >
+              ➕ הוסף "{query}"
+            </button>
+          )}
         </div>
       ) : (
         <>
