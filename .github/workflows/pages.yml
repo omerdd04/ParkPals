@@ -1,8 +1,12 @@
 name: Deploy to GitHub Pages
 
-# Builds the app and publishes it to GitHub Pages. On the live github.io domain
-# the real OpenStreetMap street tiles load (unlike the sandboxed preview), so the
-# map shows real streets.
+# Builds the app and publishes it to a `gh-pages` branch. On the live github.io
+# domain the real OpenStreetMap street tiles load (unlike the sandboxed preview),
+# so the map shows real streets.
+#
+# One-time setup by the repo owner: Settings → Pages → Build and deployment →
+# Source: "Deploy from a branch" → Branch: gh-pages / (root) → Save.
+# The site then lives at https://omerdd04.github.io/Onyx-Digital/
 
 on:
   push:
@@ -12,16 +16,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,17 +36,8 @@ jobs:
         env:
           GITHUB_PAGES: 'true'
         run: npm run build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
