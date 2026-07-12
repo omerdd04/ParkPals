@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { PARKS, parkById, distanceKm, cityCenter } from '../data/parks'
@@ -73,6 +73,16 @@ function FlyTo({ target }: { target: [number, number] | null }) {
   return null
 }
 
+// Recenter the map on the user's location when the button is tapped (trigger++).
+function Recenter({ loc, trigger }: { loc: { lat: number; lng: number }; trigger: number }) {
+  const map = useMap()
+  useEffect(() => {
+    if (trigger > 0) map.flyTo([loc.lat, loc.lng], 15, { duration: 0.6 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger])
+  return null
+}
+
 function KeepSized() {
   const map = useMap()
   useEffect(() => {
@@ -104,6 +114,12 @@ export default function MapScreen() {
   const [statusSheet, setStatusSheet] = useState(false)
   const [chatFriend, setChatFriend] = useState<Friend | null>(null)
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
+  const [recenterN, setRecenterN] = useState(0)
+  // Show real OSM street tiles; if they fail to load (blocked network / sandbox),
+  // remove the layer so the CSS street-grid basemap shows cleanly instead of the
+  // browser painting the failed tiles black.
+  const [showTiles, setShowTiles] = useState(true)
+  const tileStats = useRef({ loaded: 0, errors: 0 })
 
   const [mapReady, setMapReady] = useState(false)
   useEffect(() => {
@@ -179,13 +195,22 @@ export default function MapScreen() {
             transparent pixel so the CSS grid shows instead of a blank screen. */}
         {mapReady && (
           <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false} attributionControl={false}>
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution=""
-              errorTileUrl="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-            />
+            {showTiles && (
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution=""
+                eventHandlers={{
+                  tileload: () => { tileStats.current.loaded++ },
+                  tileerror: () => {
+                    tileStats.current.errors++
+                    if (tileStats.current.loaded === 0 && tileStats.current.errors >= 3) setShowTiles(false)
+                  },
+                }}
+              />
+            )}
             <KeepSized />
             <FlyTo target={flyTarget} />
+            <Recenter loc={userLoc} trigger={recenterN} />
             <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} zIndexOffset={1000} />
             {PARKS.map((p) => {
               const dogsHere = presenceByPark.get(p.id) ?? []
@@ -219,6 +244,16 @@ export default function MapScreen() {
 
         <button onClick={() => setStatusSheet(true)} className="absolute bottom-4 left-4 z-[500] btn-primary !rounded-full !px-5 shadow-lg flex items-center gap-2">
           <span className="text-lg">🐾</span> אני יוצא לפארק
+        </button>
+
+        {/* Recenter on my location */}
+        <button
+          onClick={() => setRecenterN((n) => n + 1)}
+          aria-label="חזרה למיקום שלי"
+          className="absolute bottom-4 right-4 z-[500] h-12 w-12 rounded-full bg-white grid place-items-center text-xl border border-park-100"
+          style={{ boxShadow: '0 6px 18px rgba(20,60,30,0.18)' }}
+        >
+          🎯
         </button>
       </div>
 
