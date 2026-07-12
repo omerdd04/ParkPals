@@ -86,91 +86,6 @@ function KeepSized() {
   return null
 }
 
-// A self-contained, procedurally-drawn street basemap. It renders under the real
-// OSM tiles, so: online → real streets on top; offline / blocked tiles → a clean
-// map-like grid instead of a blank screen. Streets align to world pixel
-// coordinates so they stay continuous across tiles.
-const BLOCK = 74
-const ROAD = 9
-function hash(x: number, y: number): number {
-  return ((x * 73856093) ^ (y * 19349663)) >>> 0
-}
-function drawMapTile(ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number) {
-  const ox = tx * size
-  const oy = ty * size
-  // ground / road base
-  ctx.fillStyle = '#e9efe7'
-  ctx.fillRect(0, 0, size, size)
-
-  // city blocks
-  const cx0 = Math.floor(ox / BLOCK) - 1
-  const cx1 = Math.floor((ox + size) / BLOCK) + 1
-  const cy0 = Math.floor(oy / BLOCK) - 1
-  const cy1 = Math.floor((oy + size) / BLOCK) + 1
-  for (let cx = cx0; cx <= cx1; cx++) {
-    for (let cy = cy0; cy <= cy1; cy++) {
-      const h = hash(cx, cy)
-      const x = cx * BLOCK - ox
-      const y = cy * BLOCK - oy
-      let fill = h % 2 ? '#eef3ec' : '#e5ede3'
-      if (h % 7 === 0) fill = '#d7ead0' // green patch
-      else if (h % 23 === 0) fill = '#cfe4ef' // water
-      ctx.fillStyle = fill
-      ctx.fillRect(x + ROAD / 2, y + ROAD / 2, BLOCK - ROAD, BLOCK - ROAD)
-    }
-  }
-
-  // street grid (continuous across tiles), avenues every 4th line are wider
-  const drawLines = (vertical: boolean) => {
-    const from = vertical ? cx0 : cy0
-    const to = vertical ? cx1 : cy1
-    for (let k = from; k <= to; k++) {
-      const pos = k * BLOCK - (vertical ? ox : oy)
-      const avenue = k % 4 === 0
-      // casing
-      ctx.strokeStyle = '#d3ddd0'
-      ctx.lineWidth = avenue ? 9 : 6
-      ctx.beginPath()
-      if (vertical) { ctx.moveTo(pos, 0); ctx.lineTo(pos, size) } else { ctx.moveTo(0, pos); ctx.lineTo(size, pos) }
-      ctx.stroke()
-      // road
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = avenue ? 5 : 3
-      ctx.beginPath()
-      if (vertical) { ctx.moveTo(pos, 0); ctx.lineTo(pos, size) } else { ctx.moveTo(0, pos); ctx.lineTo(size, pos) }
-      ctx.stroke()
-    }
-  }
-  drawLines(true)
-  drawLines(false)
-}
-function MapBackdrop() {
-  const map = useMap()
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Layer = (L.GridLayer as any).extend({
-      createTile(coords: { x: number; y: number; z: number }, done: (e: unknown, t: HTMLElement) => void) {
-        const size = this.getTileSize()
-        const canvas = document.createElement('canvas')
-        canvas.width = size.x
-        canvas.height = size.y
-        // Draw AFTER the tile is attached to the DOM (next frame), then signal
-        // "loaded" so Leaflet fades it in. Canvas tiles fire no <img> load event,
-        // and drawing post-attach avoids a compositing quirk that can blank them.
-        requestAnimationFrame(() => {
-          const ctx = canvas.getContext('2d')
-          if (ctx) drawMapTile(ctx, coords.x, coords.y, size.x)
-          done(null, canvas)
-        })
-        return canvas
-      },
-    })
-    const layer = new Layer({ zIndex: 0 })
-    layer.addTo(map)
-    return () => { map.removeLayer(layer) }
-  }, [map])
-  return null
-}
 
 export default function MapScreen() {
   const now = useNow(1000)
@@ -258,13 +173,15 @@ export default function MapScreen() {
       </div>
 
       <div className="flex-1 relative min-h-0">
+        {/* The map container carries a CSS street-grid background (see
+            .leaflet-container in index.css). Real OSM street tiles render on top
+            where the network allows; when blocked, tiles fall back to a
+            transparent pixel so the CSS grid shows instead of a blank screen. */}
         {mapReady && (
           <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false} attributionControl={false}>
-            <MapBackdrop />
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution=""
-              // failed/blocked tiles become a fully transparent 1×1 PNG so the drawn basemap shows through
               errorTileUrl="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
             />
             <KeepSized />

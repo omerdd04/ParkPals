@@ -37,7 +37,13 @@ body {
 
 .leaflet-container {
   font-family: 'Rubik', system-ui, sans-serif;
-  background: #e9efe8;
+  /* Street-grid basemap painted as a CSS background (reliable everywhere). Real
+     OSM street tiles render on top when the network allows; otherwise this shows
+     instead of a blank map. */
+  background-color: #dde5da;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='112'%3E%3Crect width='112' height='112' fill='%23dde5da'/%3E%3Crect x='8' y='8' width='96' height='96' rx='9' fill='%23eef3ec'/%3E%3Crect x='34' y='34' width='30' height='30' rx='5' fill='%23dcecd4'/%3E%3Crect width='112' height='4' fill='%23ffffff'/%3E%3Crect width='4' height='112' fill='%23ffffff'/%3E%3C/svg%3E");
+  background-size: 112px 112px;
+  background-repeat: repeat;
 }
 .leaflet-popup-content-wrapper {
   border-radius: 18px;
