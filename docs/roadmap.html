@@ -1,0 +1,274 @@
+<title>Dog parks — תוכנית עבודה ומפת דרכים</title>
+<style>
+  :root {
+    --ground: #f1f5ef; --card: #ffffff; --ink: #15241b; --muted: #63756a;
+    --line: #e2e9e0; --brand: #2d9c3a; --brand-2: #7fce4a;
+    --build: #2563eb; --build-bg: #e9f0fe; --build-line: #c7dbfc;
+    --you: #c2790f; --you-bg: #fdf1dc; --you-line: #f4dcae;
+    --done: #2d9c3a; --done-bg: #e5f4e4;
+    --shadow: 0 6px 22px rgba(20,60,30,.07), 0 1px 3px rgba(20,60,30,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0f1512; --card: #17201b; --ink: #e9f1e9; --muted: #94a79b;
+      --line: #26332b; --brand: #5cbb52; --brand-2: #7fce4a;
+      --build: #6ea8fe; --build-bg: #16233b; --build-line: #274a7a;
+      --you: #e2a94a; --you-bg: #33260f; --you-line: #5c4413;
+      --done: #5cbb52; --done-bg: #16281a;
+      --shadow: 0 6px 22px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1512; --card: #17201b; --ink: #e9f1e9; --muted: #94a79b;
+    --line: #26332b; --brand: #5cbb52; --brand-2: #7fce4a;
+    --build: #6ea8fe; --build-bg: #16233b; --build-line: #274a7a;
+    --you: #e2a94a; --you-bg: #33260f; --you-line: #5c4413;
+    --done: #5cbb52; --done-bg: #16281a;
+    --shadow: 0 6px 22px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --ground: #f1f5ef; --card: #ffffff; --ink: #15241b; --muted: #63756a;
+    --line: #e2e9e0; --brand: #2d9c3a; --brand-2: #7fce4a;
+    --build: #2563eb; --build-bg: #e9f0fe; --build-line: #c7dbfc;
+    --you: #c2790f; --you-bg: #fdf1dc; --you-line: #f4dcae;
+    --done: #2d9c3a; --done-bg: #e5f4e4;
+    --shadow: 0 6px 22px rgba(20,60,30,.07), 0 1px 3px rgba(20,60,30,.05);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 34px 20px 72px; }
+  h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(1.7rem, 5vw, 2.5rem); font-weight: 800; letter-spacing: -.02em; }
+  .lede { color: var(--muted); font-size: 1.06rem; margin-top: 10px; max-width: 60ch; }
+  .eyebrow { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); font-weight: 700; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 7px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; box-shadow: var(--shadow);
+  }
+  .chip b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .chip span { color: var(--muted); font-size: .86rem; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 30px 0 8px; }
+  .key { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; font-weight: 600; }
+  .dot { width: 13px; height: 13px; border-radius: 4px; flex: none; }
+  .dot.build { background: var(--build); }
+  .dot.you { background: var(--you); }
+  .dot.done { background: var(--done); }
+
+  section { margin-top: 40px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .sec-head h2 { font-size: 1.35rem; font-weight: 800; }
+  .sec-head .count { color: var(--muted); font-size: .9rem; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); }
+
+  /* Done list */
+  .done-list { padding: 8px 6px; columns: 2; column-gap: 26px; }
+  .done-list li { list-style: none; break-inside: avoid; padding: 6px 10px; display: flex; gap: 9px; align-items: flex-start; }
+  .done-list li::before { content: "✓"; color: var(--done); font-weight: 800; flex: none; }
+  @media (max-width: 560px) { .done-list { columns: 1; } }
+
+  /* Phases */
+  .phase { margin-top: 18px; overflow: hidden; }
+  .phase > header { padding: 18px 20px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); }
+  .phase .num {
+    width: 40px; height: 40px; border-radius: 12px; flex: none; display: grid; place-items: center;
+    font-weight: 800; font-size: 1.05rem; background: color-mix(in srgb, var(--brand) 15%, transparent); color: var(--brand);
+    font-variant-numeric: tabular-nums;
+  }
+  .phase .num.live { background: var(--done-bg); }
+  .phase h3 { font-size: 1.12rem; font-weight: 800; }
+  .phase .when { margin-inline-start: auto; font-size: .8rem; color: var(--muted); background: var(--ground); border: 1px solid var(--line); padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
+  .phase .goal { padding: 14px 20px 4px; color: var(--muted); font-size: .95rem; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  @media (max-width: 620px) { .cols { grid-template-columns: 1fr; } }
+  .col { padding: 16px 20px 20px; }
+  .col + .col { border-inline-start: 1px solid var(--line); }
+  @media (max-width: 620px) { .col + .col { border-inline-start: 0; border-top: 1px solid var(--line); } }
+  .col h4 { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .col.build h4 { color: var(--build); }
+  .col.you h4 { color: var(--you); }
+  .col ul { margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .col li { list-style: none; padding-inline-start: 20px; position: relative; font-size: .95rem; }
+  .col li::before { position: absolute; inset-inline-start: 0; top: .1em; }
+  .col.build li::before { content: "▸"; color: var(--build); }
+  .col.you li::before { content: "◆"; color: var(--you); font-size: .7em; top: .35em; }
+  .tip { margin: 2px 20px 18px; background: var(--you-bg); border: 1px solid var(--you-line); color: var(--ink); border-radius: 14px; padding: 11px 14px; font-size: .9rem; }
+  .tip b { color: var(--you); }
+
+  /* UX grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .ux { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 15px; box-shadow: var(--shadow); }
+  .ux .t { font-weight: 700; font-size: .97rem; }
+  .ux .d { color: var(--muted); font-size: .85rem; margin-top: 3px; }
+  .ux .tag { display: inline-block; margin-top: 10px; font-size: .72rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .tag.now { background: var(--done-bg); color: var(--done); }
+  .tag.back { background: var(--build-bg); color: var(--build); border: 1px solid var(--build-line); }
+
+  .note { margin-top: 34px; font-size: .9rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; }
+  .note b { color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">🐾 Dog parks · תוכנית עבודה</div>
+  <h1>מה בונים, מי עושה מה, ומתי</h1>
+  <p class="lede">הרשימה מחלקת כל משימה לשני סוגים: <b style="color:var(--build)">מה שאני בונה</b> (כמעט הכול), ו<b style="color:var(--you)">מה שרק אתה יכול לעשות</b> — פתיחת חשבונות, החלטות, והחיבור לעולם האמיתי. ברגע שמשהו דורש אותך, אני אגיד לך בדיוק מה.</p>
+
+  <div class="chips">
+    <div class="chip"><b>5</b><span>גרסאות פרוטוטייפ הושלמו</span></div>
+    <div class="chip"><b>28</b><span>תכונות נבנו</span></div>
+    <div class="chip"><b>1</b><span>אתר חי מתארח</span></div>
+    <div class="chip"><b>3</b><span>שלבים עד להשקה</span></div>
+  </div>
+
+  <div class="legend">
+    <span class="key"><span class="dot build"></span>אני בונה</span>
+    <span class="key"><span class="dot you"></span>אתה עושה</span>
+    <span class="key"><span class="dot done"></span>הושלם</span>
+  </div>
+
+  <section>
+    <div class="sec-head"><h2>✓ מה שכבר יש (הפרוטוטייפ)</h2><span class="count">גרסאות 1–5</span></div>
+    <div class="card">
+      <ul class="done-list">
+        <li>מפה עם פארקים + עיגולי פרופיל צפים</li>
+        <li>סטטוס "בפארק / בדרך" עם היעלמות אוטומטית</li>
+        <li>צ'אט מהיר בלי הקלדה + הודעה קופצת</li>
+        <li>חברים: קוד אישי, QR, מועדפים</li>
+        <li>אקדמיה: שיעורים + קישורי וידאו</li>
+        <li>מד שמחה + קונפטי ריאליסטי</li>
+        <li>מסגרות יוקרה: אפור → יהלום</li>
+        <li>שאלון היכרות + העלאת תמונה אמיתית</li>
+        <li>צפי עומס בשעות שיא</li>
+        <li>תיבת תלונות פארקים + צור קשר</li>
+        <li>נגישות (גודל טקסט, ניגודיות, תנועה)</li>
+        <li>סקירת אבטחה + הקשחות</li>
+        <li>מפה נקייה + כפתור חזרה למיקום</li>
+        <li>אתר חי מתארח ב-GitHub Pages</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>מפת הדרכים להשקה</h2></div>
+
+    <div class="card phase">
+      <header>
+        <div class="num">1</div>
+        <h3>יסודות של מוצר אמיתי — שרת, בטיחות ונתונים</h3>
+        <div class="when">~4–6 שבועות</div>
+      </header>
+      <p class="goal">השלב הכי חשוב: מה שהופך את זה ממצגת למוצר שאנשים אמיתיים באמת רואים זה את זה בזמן אמת.</p>
+      <div class="cols">
+        <div class="col build">
+          <h4><span class="dot build"></span>אני בונה</h4>
+          <ul>
+            <li>ארכיטקטורה ותכנון המערכת</li>
+            <li>שרת: חשבונות, בסיס נתונים, נוכחות בזמן אמת, חברים, צ'אט</li>
+            <li>התראות פוש אמיתיות</li>
+            <li>חיבור האפליקציה לשרת (במקום נתוני דמו)</li>
+            <li>ייבוא נתוני פארקים אמיתיים (OSM + עיריות)</li>
+            <li>מדיניות פרטיות + מסך הסכמה + מחיקת נתונים מלאה</li>
+            <li>בטיחות: חסימה/דיווח, מיקום למועדפים בלבד, "הצמדה לפארק"</li>
+            <li>בדיקות אוטומטיות + הגדרת אירוח לפרודקשן</li>
+          </ul>
+        </div>
+        <div class="col you">
+          <h4><span class="dot you"></span>אתה עושה</h4>
+          <ul>
+            <li>לפתוח חשבונות שירות (דורשים זהות/תשלום שלך): שרת (Supabase/Firebase), דומיין, שירות פוש</li>
+            <li>לאשר החלטות מפתח: איזה סטאק, תקציב, מה נכנס ל-MVP חינמי</li>
+            <li>לתת עורך דין להעביר על מדיניות הפרטיות</li>
+            <li>אם אפשר — לחבר אותנו לעירייה (לנתוני פארקים / פיילוט)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tip">🚀 <b>אם בא לך להתחיל משהו קטן בעצמך:</b> פתח חשבון חינמי ב-<b>Supabase</b> (או Firebase) וקנה דומיין זול. זה הדבר היחיד שפותח לי להתחיל לבנות את השרת — כל השאר עליי.</div>
+    </div>
+
+    <div class="card phase">
+      <header>
+        <div class="num">2</div>
+        <h3>פיילוט סגור — אנשים אמיתיים</h3>
+        <div class="when">~4–8 שבועות</div>
+      </header>
+      <p class="goal">לבדוק את השאלה הכי חשובה: האם אנשים מאשרים מיקום ונשארים פעילים. אם כן — יש לך מוצר.</p>
+      <div class="cols">
+        <div class="col build">
+          <h4><span class="dot build"></span>אני בונה</h4>
+          <ul>
+            <li>מערכת הזמנות / גישת בטא</li>
+            <li>אנליטיקה + איסוף משוב בתוך האפליקציה</li>
+            <li>ליטוש חווית הכניסה הראשונה</li>
+            <li>תיקוני באגים מהירים לפי מה שעולה בפיילוט</li>
+            <li>מסך ניהול פשוט לצפייה בנתונים</li>
+          </ul>
+        </div>
+        <div class="col you">
+          <h4><span class="dot you"></span>אתה עושה</h4>
+          <ul>
+            <li>לגייס 20–50 בעלי כלבים אמיתיים בשכונה אחת (אשדוד רובע ד')</li>
+            <li>להריץ את הפיילוט ולאסוף משוב</li>
+            <li>לנהל בעדינות את הקהילה הקטנה</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card phase">
+      <header>
+        <div class="num">3</div>
+        <h3>השקה וצמיחה</h3>
+        <div class="when">מתמשך אחרי פיילוט מוצלח</div>
+      </header>
+      <p class="goal">לפתוח לציבור, להגיע לחנויות אפליקציות, ולבנות שיתופי פעולה.</p>
+      <div class="cols">
+        <div class="col build">
+          <h4><span class="dot build"></span>אני בונה</h4>
+          <ul>
+            <li>ביצועים ומדרגיות (סקיילינג)</li>
+            <li>אריזה לחנויות (אפליקציה מתקינה / TWA)</li>
+            <li>דשבורד ניהול לעיריות וחנויות</li>
+            <li>ריבוי שפות ותכונות נוספות</li>
+          </ul>
+        </div>
+        <div class="col you">
+          <h4><span class="dot you"></span>אתה עושה</h4>
+          <ul>
+            <li>חשבונות מפתחים בחנויות (Apple / Google)</li>
+            <li>שיווק ושיתופי פעולה (עיריות, חנויות חיות)</li>
+            <li>תמיכה ומודרציה שוטפת</li>
+            <li>החלטות עסקיות ומשפטיות</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>שיפורים למשתמש</h2><span class="count">חלק מהם אפשר כבר עכשיו</span></div>
+    <div class="grid">
+      <div class="ux"><div class="t">מסך "למה מיקום"</div><div class="d">הסבר קצר לפני בקשת המיקום — מעלה מאוד את אחוז האישור.</div><span class="tag now">אפשר עכשיו</span></div>
+      <div class="ux"><div class="t">דיווח על פארק חסר</div><div class="d">משתמשים מוסיפים פארקים שחסרים — נתונים מהקהילה.</div><span class="tag now">אפשר עכשיו</span></div>
+      <div class="ux"><div class="t">חיפוש וסינון פארקים</div><div class="d">לפי מגודר / ברזייה / קרוב, וחיפוש בשם + "הפארקים שלי".</div><span class="tag now">אפשר עכשיו</span></div>
+      <div class="ux"><div class="t">איחוד פינים צפופים</div><div class="d">קלאסטרים כשהרבה פארקים קרובים, לפתיחה בזום.</div><span class="tag now">אפשר עכשיו</span></div>
+      <div class="ux"><div class="t">מצב לילה</div><div class="d">ערכת צבעים כהה לנוחות בערב.</div><span class="tag now">אפשר עכשיו</span></div>
+      <div class="ux"><div class="t">עוד שפות</div><div class="d">עברית · ערבית · רוסית · אנגלית.</div><span class="tag now">אפשר עכשיו</span></div>
+      <div class="ux"><div class="t">מדריכי אקדמיה נוספים</div><div class="d">עוד שיעורים + קישורי וידאו מאומתים.</div><span class="tag now">אפשר עכשיו</span></div>
+      <div class="ux"><div class="t">תמונות אמיתיות של חברים</div><div class="d">פרופילים אמיתיים במקום אימוג'י.</div><span class="tag back">דורש שרת</span></div>
+      <div class="ux"><div class="t">התראות שנפתחות לצ'אט</div><div class="d">לחיצה על התראה פותחת ישר את השיחה.</div><span class="tag back">דורש שרת</span></div>
+      <div class="ux"><div class="t">עמידות אופליין</div><div class="d">עובד גם בקליטה חלשה, מסתנכרן אחר כך.</div><span class="tag back">דורש שרת</span></div>
+    </div>
+  </section>
+
+  <p class="note">
+    <b>חלוקת העבודה בקצרה:</b> אני עושה את כל הבנייה — קוד, עיצוב, והגדרות אירוח. אתה עושה רק את מה שאני לא יכול: החלטות ואישורים, פתיחת חשבונות שדורשים זהות/תשלום, החיבור לעולם האמיתי (קהילה, עיריות, חנויות), ובדיקה בטלפון. את הרשימה הזאת נעדכן יחד — כל מה שנסיים יעבור ל"מה שכבר יש".
+  </p>
+</div>
