@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body,#m{height:100%;margin:0}</style></head>
+<body><div id="m"></div>
+<script type="module">
+window.__errs = []
+window.addEventListener('error', e => window.__errs.push('ERR: ' + e.message))
+try {
+  const L = (await import('leaflet')).default
+  await import('leaflet/dist/leaflet.css')
+  await import('maplibre-gl/dist/maplibre-gl.css')
+  await import('@maplibre/maplibre-gl-leaflet')
+  const map = L.map('m').setView([31.79, 34.64], 14)
+  if (typeof L.maplibreGL !== 'function') {
+    window.__errs.push('NO L.maplibreGL factory!')
+  } else {
+    const gl = L.maplibreGL({ style: 'https://tiles.openfreemap.org/styles/liberty' })
+    gl.addTo(map)
+    window.__errs.push('layer added ok')
+  }
+} catch (e) { window.__errs.push('THROW: ' + (e && e.message)) }
+</script></body></html>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, Marker, useMap } from 'react-leaflet'
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import '@maplibre/maplibre-gl-leaflet'
@@ -74,18 +74,52 @@ function meIcon(photo: string): L.DivIcon {
 }
 
 // Vector basemap: OpenFreeMap "liberty" style rendered by MapLibre GL under
-// the Leaflet markers. Free, no API key, and crucially — no vendor name burned
-// into the map itself. Falls back to the CSS street-grid if it can't load.
-function VectorBase() {
+// the Leaflet markers — free, keyless, and no vendor name burned into the map.
+// Robust fallback chain: if WebGL is unavailable or the style fails to load
+// within a few seconds, we swap to clean Esri street tiles (also unbranded),
+// so there is ALWAYS a real map.
+type GLLayer = L.Layer & { getMaplibreMap?: () => { on?: (ev: string, cb: (e?: unknown) => void) => void } }
+
+function VectorBase({ onFail }: { onFail: () => void }) {
   const map = useMap()
   useEffect(() => {
-    const factory = (L as unknown as { maplibreGL?: (opts: { style: string }) => L.Layer }).maplibreGL
-    if (!factory) return
-    const gl = factory({ style: 'https://tiles.openfreemap.org/styles/liberty' })
-    gl.addTo(map)
-    return () => { map.removeLayer(gl) }
+    const factory = (L as unknown as { maplibreGL?: (opts: { style: string }) => GLLayer }).maplibreGL
+    if (!factory) { onFail(); return }
+    let gl: GLLayer | null = null
+    let loaded = false
+    let cancelled = false
+    const fail = () => { if (!cancelled && !loaded) onFail() }
+    try {
+      gl = factory({ style: 'https://tiles.openfreemap.org/styles/liberty' })
+      gl.addTo(map)
+      const ml = gl.getMaplibreMap?.()
+      ml?.on?.('load', () => { loaded = true })
+      ml?.on?.('error', () => fail())
+    } catch {
+      onFail()
+      return
+    }
+    // Hard timeout: no style within 7s (slow network, blocked host) → raster.
+    const t = window.setTimeout(fail, 7000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+      if (gl) map.removeLayer(gl)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map])
   return null
+}
+
+// Clean raster fallback (Esri World Street Map — no watermark on the tiles).
+function RasterBase() {
+  return (
+    <TileLayer
+      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+      maxZoom={19}
+      attribution=""
+    />
+  )
 }
 
 function FlyTo({ target }: { target: [number, number] | null }) {
@@ -152,6 +186,9 @@ export default function MapScreen() {
 
   // Full-screen map: hides the header (greeting, search, stories) for max map.
   const [fullMap, setFullMap] = useState(false)
+
+  // Basemap fallback: vector (OpenFreeMap) unless it fails → raster (Esri).
+  const [vectorFailed, setVectorFailed] = useState(false)
 
   // Admin: edit parks straight from the map
   const [isAdmin, setIsAdmin] = useState(false)
@@ -320,7 +357,7 @@ export default function MapScreen() {
             transparent pixel so the CSS grid shows instead of a blank screen. */}
         {mapReady && (
           <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false} attributionControl={false}>
-            <VectorBase />
+            {vectorFailed ? <RasterBase /> : <VectorBase onFail={() => setVectorFailed(true)} />}
                         <KeepSized />
             <FlyTo target={flyTarget} />
             <Recenter loc={userLoc} trigger={recenterN} />
