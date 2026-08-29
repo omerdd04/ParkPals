@@ -13,7 +13,7 @@ import QuickChat from './QuickChat'
 import NotificationsButton from './NotificationsButton'
 import { PARK_QUESTIONS } from '../data/parkQuestions'
 import { submitParkFeedback, currentUserEmail, updatePark, deletePark } from '../lib/backend'
-import { ADMIN_EMAILS } from '../config'
+import { ADMIN_EMAILS, MAPTILER_KEY } from '../config'
 import { refreshParks } from '../lib/liveSync'
 
 // Empty park: a simple tree pin.
@@ -111,14 +111,36 @@ function VectorBase({ onFail }: { onFail: () => void }) {
   return null
 }
 
-// Clean raster fallback (Esri World Street Map — no watermark on the tiles).
+// Raster fallback: standard OSM — not the prettiest, but the FRESHEST data
+// for Israel (community-updated weekly), so parks sit where they really are.
 function RasterBase() {
   return (
     <TileLayer
-      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       maxZoom={19}
       attribution=""
     />
+  )
+}
+
+// Primary when a MapTiler key is configured: modern style + fresh OSM data,
+// raster (no WebGL involved) and retina-sharp. Requires the small corner
+// credit per MapTiler's free-plan terms (added as a fixed label, not a
+// watermark across the map).
+function MapTilerBase() {
+  return (
+    <>
+      <TileLayer
+        url={`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`}
+        tileSize={512}
+        zoomOffset={-1}
+        maxZoom={20}
+        attribution=""
+      />
+      <div className="absolute bottom-0 left-0 z-[400] px-1.5 py-0.5 text-[9px] text-black/50 bg-white/60 rounded-tr">
+        © MapTiler © OpenStreetMap
+      </div>
+    </>
   )
 }
 
@@ -357,7 +379,9 @@ export default function MapScreen() {
             transparent pixel so the CSS grid shows instead of a blank screen. */}
         {mapReady && (
           <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false} attributionControl={false}>
-            {vectorFailed ? <RasterBase /> : <VectorBase onFail={() => setVectorFailed(true)} />}
+            {MAPTILER_KEY
+              ? <MapTilerBase />
+              : vectorFailed ? <RasterBase /> : <VectorBase onFail={() => setVectorFailed(true)} />}
                         <KeepSized />
             <FlyTo target={flyTarget} />
             <Recenter loc={userLoc} trigger={recenterN} />

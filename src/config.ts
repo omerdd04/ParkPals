@@ -16,3 +16,8 @@ export const AUTO_CHECKIN_RADIUS_M = 500
 
 // Academy is gated for launch: locked tab that teases what's coming.
 export const ACADEMY_LOCKED = true
+
+// MapTiler API key (publishable, client-side). When set, the map uses
+// MapTiler's modern "streets-v2" raster style (fresh OSM data, retina).
+// Create a free account at maptiler.com → API keys, and paste the key here.
+export const MAPTILER_KEY = ''
