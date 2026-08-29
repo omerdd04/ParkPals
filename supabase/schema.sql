@@ -263,3 +263,7 @@ create trigger on_auth_user_created
 -- Done. Next: enable Email auth (Authentication → Providers → Email) and add
 -- your site URL under Authentication → URL Configuration → Redirect URLs.
 -- =============================================================================
+
+-- Tell PostgREST (the API layer) to reload its schema cache immediately, so
+-- new columns are usable right after this script runs — no waiting.
+notify pgrst, 'reload schema';
