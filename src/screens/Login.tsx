@@ -27,8 +27,9 @@ export default function Login() {
 
   return (
     <div className="mx-auto max-w-md h-full flex flex-col items-center justify-center px-7 bg-[var(--ground)] text-center">
-      <div className="text-6xl mb-3">🐾</div>
-      <h1 className="text-2xl font-extrabold text-park-700">{APP_NAME}</h1>
+      <img src={`${import.meta.env.BASE_URL}icon-512.png`} alt="" className="w-32 h-32 mb-2" />
+      <h1 className="text-3xl font-extrabold text-park-700">{APP_NAME}</h1>
+      <p className="mt-1 text-xs font-semibold tracking-wide text-park-500">Where Community Meets Trust</p>
       <p className="mt-2 text-sm text-park-500 leading-relaxed">
         הפארק החברתי לבעלי כלבים.<br />הזינו אימייל ונשלח לכם קישור כניסה — בלי סיסמה.
       </p>
