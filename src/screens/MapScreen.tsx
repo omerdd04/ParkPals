@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { useEffect, useMemo, useState } from 'react'
+import { MapContainer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import '@maplibre/maplibre-gl-leaflet'
 import { PARKS, parkById, distanceKm, cityCenter } from '../data/parks'
 import { busyEstimate, presenceActive, presenceRemainingMs, useStore } from '../store'
 import type { Friend, Park } from '../types'
@@ -69,6 +71,21 @@ function meIcon(photo: string): L.DivIcon {
     iconSize: [40, 40],
     iconAnchor: [20, 20],
   })
+}
+
+// Vector basemap: OpenFreeMap "liberty" style rendered by MapLibre GL under
+// the Leaflet markers. Free, no API key, and crucially — no vendor name burned
+// into the map itself. Falls back to the CSS street-grid if it can't load.
+function VectorBase() {
+  const map = useMap()
+  useEffect(() => {
+    const factory = (L as unknown as { maplibreGL?: (opts: { style: string }) => L.Layer }).maplibreGL
+    if (!factory) return
+    const gl = factory({ style: 'https://tiles.openfreemap.org/styles/liberty' })
+    gl.addTo(map)
+    return () => { map.removeLayer(gl) }
+  }, [map])
+  return null
 }
 
 function FlyTo({ target }: { target: [number, number] | null }) {
@@ -144,12 +161,6 @@ export default function MapScreen() {
       if (email && ADMIN_EMAILS.includes(email.toLowerCase())) setIsAdmin(true)
     })
   }, [])
-  // Show real OSM street tiles; if they fail to load (blocked network / sandbox),
-  // remove the layer so the CSS street-grid basemap shows cleanly instead of the
-  // browser painting the failed tiles black.
-  const [showTiles, setShowTiles] = useState(true)
-  const tileStats = useRef({ loaded: 0, errors: 0 })
-
   const [mapReady, setMapReady] = useState(false)
   useEffect(() => {
     let cancelled = false
@@ -309,26 +320,8 @@ export default function MapScreen() {
             transparent pixel so the CSS grid shows instead of a blank screen. */}
         {mapReady && (
           <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false} attributionControl={false}>
-            {showTiles && (
-              /* CARTO Voyager basemap — modern, clean look (Apple/Google-like)
-                 and retina-sharp ({r}) on phones, replacing the dated default
-                 OSM style. Data © OpenStreetMap contributors, tiles © CARTO
-                 (credited in Settings → copyright). */
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                subdomains="abcd"
-                maxZoom={20}
-                attribution=""
-                eventHandlers={{
-                  tileload: () => { tileStats.current.loaded++ },
-                  tileerror: () => {
-                    tileStats.current.errors++
-                    if (tileStats.current.loaded === 0 && tileStats.current.errors >= 3) setShowTiles(false)
-                  },
-                }}
-              />
-            )}
-            <KeepSized />
+            <VectorBase />
+                        <KeepSized />
             <FlyTo target={flyTarget} />
             <Recenter loc={userLoc} trigger={recenterN} />
             {/* "You are here" only when we actually have GPS — a city-center
