@@ -9,6 +9,9 @@ import DogAvatar from '../ui/DogAvatar'
 import FramedAvatar from '../ui/FramedAvatar'
 import Sheet from '../ui/Sheet'
 import QuickChat from './QuickChat'
+import { isSupabaseConfigured } from '../lib/supabase'
+import { addFriendByCode as addFriendLive } from '../lib/backend'
+import { refreshFriends } from '../lib/liveSync'
 
 export default function FriendsScreen() {
   const now = useNow(1000)
@@ -49,10 +52,14 @@ export default function FriendsScreen() {
     return m
   }, [friends, now])
 
-  function handleAdd() {
-    const res = addFriendByCode(codeInput)
+  async function handleAdd() {
+    // Live mode looks the code up on the server; demo mode fakes a friend.
+    const res = isSupabaseConfigured ? await addFriendLive(codeInput) : addFriendByCode(codeInput)
     setAddMsg(res)
-    if (res.ok) setCodeInput('')
+    if (res.ok) {
+      setCodeInput('')
+      if (isSupabaseConfigured) void refreshFriends()
+    }
   }
 
   function FriendRow({ f }: { f: Friend }) {

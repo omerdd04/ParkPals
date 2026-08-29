@@ -12,6 +12,7 @@ import Toast from './ui/Toast'
 import { isSupabaseConfigured } from './lib/supabase'
 import { useSession } from './lib/useSession'
 import { loadMyProfile, saveMyProfile } from './lib/backend'
+import { startLiveSync, stopLiveSync } from './lib/liveSync'
 
 export type Tab = 'map' | 'friends' | 'dog' | 'academy' | 'more'
 
@@ -41,14 +42,21 @@ export default function App() {
   const { loading: authLoading, userId } = useSession()
   const hydratedFor = useRef<string | null>(null)
 
-  // On sign-in, load the profile from the backend as the source of truth.
+  // On sign-in, load the profile from the backend as the source of truth,
+  // then start live sync (friends, presence, chat). Stops on sign-out.
   useEffect(() => {
-    if (!isSupabaseConfigured || !userId) return
-    if (hydratedFor.current === userId) return
-    hydratedFor.current = userId
-    loadMyProfile().then((p) => {
-      if (p) hydrateProfile(p.owner, p.dog, p.onboarded)
-    })
+    if (!isSupabaseConfigured || !userId) {
+      stopLiveSync()
+      return
+    }
+    if (hydratedFor.current !== userId) {
+      hydratedFor.current = userId
+      loadMyProfile().then((p) => {
+        if (p) hydrateProfile(p.owner, p.dog, p.onboarded)
+      })
+    }
+    void startLiveSync(userId)
+    return () => stopLiveSync()
   }, [userId, hydrateProfile])
 
   // Once loaded, keep the backend profile in sync with local edits.

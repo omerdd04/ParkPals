@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { trickPoints } from './data/tricks'
+import { isSupabaseConfigured } from './lib/supabase'
+import * as backend from './lib/backend'
 import type {
   AppNotification,
   CareAction,
@@ -103,6 +105,9 @@ interface Store {
   // actions
   completeOnboarding: (owner: OwnerProfile, dog: DogProfile) => void
   hydrateProfile: (owner: OwnerProfile, dog: DogProfile, onboarded: boolean) => void
+  setFriends: (friends: Friend[]) => void
+  setChats: (chats: ChatMessage[]) => void
+  appendChat: (msg: ChatMessage) => void
   setPresence: (parkId: string, kind: PresenceKind, sharesLocation: boolean) => void
   setUserLoc: (loc: { lat: number; lng: number } | null) => void
   setShareLocation: (on: boolean) => void
@@ -136,7 +141,7 @@ export const useStore = create<Store>()(
       myPresence: null,
       shareLocation: false,
       userLoc: null,
-      friends: seedFriends(),
+      friends: isSupabaseConfigured ? [] : seedFriends(),
       chats: [],
       happinessLog: [],
       academy: {},
@@ -158,19 +163,28 @@ export const useStore = create<Store>()(
       // after sign-in). Only marks onboarded when the backend has a real name.
       hydrateProfile: (owner, dog, onboarded) => set({ owner, dog, onboarded }),
 
-      setPresence: (parkId, kind, sharesLocation) =>
+      setFriends: (friends) => set({ friends }),
+      setChats: (chats) => set({ chats }),
+      appendChat: (msg) => set((s) => ({ chats: [...s.chats, msg] })),
+
+      setPresence: (parkId, kind, sharesLocation) => {
         // Single active presence: a new one replaces the previous (turn-on-only).
-        set({ myPresence: { parkId, kind, sharesLocation, startedAt: Date.now() } }),
+        set({ myPresence: { parkId, kind, sharesLocation, startedAt: Date.now() } })
+        void backend.setPresence(parkId, kind, sharesLocation)
+      },
 
       setUserLoc: (loc) => set({ userLoc: loc }),
       setShareLocation: (on) => set({ shareLocation: on }),
 
-      toggleFavorite: (friendId) =>
+      toggleFavorite: (friendId) => {
+        const cur = get().friends.find((f) => f.id === friendId)
+        if (cur) void backend.setFavorite(friendId, !cur.favorite)
         set((s) => ({
           friends: s.friends.map((f) =>
             f.id === friendId ? { ...f, favorite: !f.favorite } : f,
           ),
-        })),
+        }))
+      },
 
       addFriendByCode: (rawCode) => {
         const clean = rawCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -194,6 +208,11 @@ export const useStore = create<Store>()(
       sendMessage: (friendId, type, parkName) => {
         const msg: ChatMessage = { id: uid(), friendId, fromMe: true, type, parkName, at: Date.now() }
         set((s) => ({ chats: [...s.chats, msg] }))
+        if (isSupabaseConfigured) {
+          // Live mode: deliver for real; replies arrive via realtime, no simulation.
+          void backend.sendChat(friendId, type, parkName)
+          return
+        }
         if (type === 'invite_walk' || type === 'on_my_way') {
           const replyTypes: QuickMsgType[] = ['yes_coming', 'next_time', 'not_this_time']
           const reply = replyTypes[Math.floor(Math.random() * replyTypes.length)]
@@ -220,14 +239,16 @@ export const useStore = create<Store>()(
       completeLesson: (lessonId) =>
         set((s) => ({ academy: { ...s.academy, [lessonId]: true } })),
 
-      addComplaint: (c) =>
+      addComplaint: (c) => {
+        void backend.addComplaint({ parkName: c.parkName, city: c.city, category: c.category, text: c.text })
         set((s) => ({
           complaints: [{ ...c, id: uid(), at: Date.now() }, ...s.complaints],
           notifications: [
             { id: uid(), text: 'התלונה נשלחה למערך הפארקים הארצי. תודה שאכפת לך! 🙏', at: Date.now(), read: false, kind: 'system' },
             ...s.notifications,
           ],
-        })),
+        }))
+      },
 
       markNotificationsRead: () =>
         set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
@@ -244,12 +265,13 @@ export const useStore = create<Store>()(
         set({
           onboarded: false, owner: emptyOwner, dog: emptyDog, myPresence: null,
           shareLocation: false, userLoc: null,
-          friends: seedFriends(), chats: [], happinessLog: [], academy: {}, complaints: [],
+          friends: isSupabaseConfigured ? [] : seedFriends(), chats: [], happinessLog: [], academy: {}, complaints: [],
           notifications: [], toast: null, settings: defaultSettings,
         }),
     }),
     {
-      name: 'onyx-store-v2',
+      // v3: live-backend era — fresh key so old demo data doesn't linger.
+      name: 'parkpals-store-v3',
       partialize: (s) => {
         // Don't persist transient toast.
         const { toast: _toast, ...rest } = s
