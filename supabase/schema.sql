@@ -1,5 +1,5 @@
 -- =============================================================================
--- Dog parks — Supabase schema (pilot backend)
+-- ParkPals — Supabase schema (pilot backend)
 -- Run this whole file once in the Supabase SQL Editor (Dashboard → SQL → New query).
 -- It is safe to re-run: everything uses "if not exists" / "or replace".
 -- =============================================================================

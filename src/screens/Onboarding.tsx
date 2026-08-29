@@ -121,7 +121,7 @@ export default function Onboarding() {
       <div className="px-6 pt-8 pb-3">
         <div className="flex items-center gap-2 text-park-700">
           <span className="text-3xl">🐾</span>
-          <span className="text-2xl font-extrabold">Dog parks</span>
+          <span className="text-2xl font-extrabold">ParkPals</span>
         </div>
         {step > 0 && (
           <div className="mt-4 flex gap-1.5">
@@ -136,7 +136,7 @@ export default function Onboarding() {
         {step === 0 && (
           <div className="h-full flex flex-col justify-center text-center gap-4">
             <div className="text-6xl">🗺️🐕</div>
-            <h1 className="text-2xl font-extrabold text-park-800">ברוכים הבאים ל-Dog parks</h1>
+            <h1 className="text-2xl font-extrabold text-park-800">ברוכים הבאים ל-ParkPals</h1>
             <p className="text-park-700 leading-relaxed">
               מוצאים פארקי כלבים לידכם, רואים איזה חברים בפארק עכשיו, מתאמים סיבובים
               בלחיצה אחת, ולומדים איך לגרום לכלב שלכם לחיות טוב יותר.
@@ -284,7 +284,7 @@ export default function Onboarding() {
       {/* Location permission */}
       <Sheet open={locSheet} onClose={() => requestLocation(false)} title="למצוא פארקים לידך 📍">
         <p className="text-park-700 leading-relaxed mb-4">
-          Dog parks רוצה להשתמש במיקום כדי להראות לך את הפארק הכי קרוב ואיזה חברים נמצאים בו.
+          ParkPals רוצה להשתמש במיקום כדי להראות לך את הפארק הכי קרוב ואיזה חברים נמצאים בו.
           תמיד אתה בשליטה — שיתוף המיקום נדלק רק כשתבחר.
         </p>
         <div className="space-y-2">

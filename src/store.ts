@@ -21,11 +21,11 @@ function genCode(): string {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let s = ''
   for (let i = 0; i < 4; i++) s += letters[Math.floor(Math.random() * letters.length)]
-  return s // raw 4 chars; displayed as ONX-XXXX
+  return s // raw 4 chars; displayed as PP-XXXX
 }
 
 export function formatCode(raw: string): string {
-  return `DP-${raw.toUpperCase()}`
+  return `PP-${raw.toUpperCase()}`
 }
 
 function uid(): string {
@@ -142,7 +142,7 @@ export const useStore = create<Store>()(
       academy: {},
       complaints: [],
       notifications: [
-        { id: uid(), text: 'ברוכים הבאים ל-Dog parks! השלימו את מד השמחה של הכלב היום 🐾', at: Date.now(), read: false, kind: 'system' },
+        { id: uid(), text: 'ברוכים הבאים ל-ParkPals! השלימו את מד השמחה של הכלב היום 🐾', at: Date.now(), read: false, kind: 'system' },
       ],
       toast: null,
       settings: defaultSettings,

@@ -1,4 +1,4 @@
-# Security review — Dog parks
+# Security review — ParkPals
 
 _Scope: the current app (a client-side React SPA, no backend, data in
 `localStorage`). This review covers what an attacker could try today and what

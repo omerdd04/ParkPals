@@ -6,7 +6,7 @@ name: Deploy to GitHub Pages
 #
 # One-time setup by the repo owner: Settings → Pages → Build and deployment →
 # Source: "Deploy from a branch" → Branch: gh-pages / (root) → Save.
-# The site then lives at https://omerdd04.github.io/Onyx-Digital/
+# The site then lives at https://omerdd04.github.io/parkpals/
 
 on:
   push:

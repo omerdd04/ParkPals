@@ -1,4 +1,4 @@
-// ---- Core domain types for the Onyx dog-park social app ----
+// ---- Core domain types for the ParkPals dog-park social app ----
 
 export type DogSize = 'small' | 'medium' | 'large'
 export type DogEnergy = 'calm' | 'balanced' | 'energetic'

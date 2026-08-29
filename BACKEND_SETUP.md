@@ -21,7 +21,7 @@
 1. בתפריט: **Authentication** → **Providers** → **Email** → ודא שהוא **Enabled**.
    (מספיק "Email"; אפשר לכבות "Confirm email" כדי שהקישור ייכנס ישר.)
 2. **Authentication** → **URL Configuration**:
-   - **Site URL**: הכתובת של האתר החי — `https://omerdd04.github.io/Onyx-Digital/`
+   - **Site URL**: הכתובת של האתר החי — `https://omerdd04.github.io/parkpals/`
    - **Redirect URLs**: הוסף גם את הכתובת הזו, וגם `http://localhost:5173/` (לפיתוח מקומי).
 
 ## שלב 3 — לחבר את המפתחות לאפליקציה
