@@ -115,6 +115,11 @@ export default function MapScreen() {
   const [chatFriend, setChatFriend] = useState<Friend | null>(null)
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
   const [recenterN, setRecenterN] = useState(0)
+  // Park search + filters
+  const [query, setQuery] = useState('')
+  const [fFenced, setFFenced] = useState(false)
+  const [fWater, setFWater] = useState(false)
+  const [fLarge, setFLarge] = useState(false)
   // Show real OSM street tiles; if they fail to load (blocked network / sandbox),
   // remove the layer so the CSS street-grid basemap shows cleanly instead of the
   // browser painting the failed tiles black.
@@ -147,6 +152,30 @@ export default function MapScreen() {
     [friends, now],
   )
 
+  // Filters narrow which parks show on the map; search finds a park by name/city.
+  const visibleParks = useMemo(
+    () => PARKS.filter((p) =>
+      (!fFenced || p.fenced) && (!fWater || p.hasWater) && (!fLarge || p.size === 'large'),
+    ),
+    [fFenced, fWater, fLarge],
+  )
+
+  const searchResults = useMemo(() => {
+    const q = query.trim()
+    if (!q) return []
+    return visibleParks
+      .filter((p) => p.name.includes(q) || p.city.includes(q) || (p.area ?? '').includes(q))
+      .map((p) => ({ p, d: distanceKm(userLoc.lat, userLoc.lng, p.lat, p.lng) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 6)
+  }, [query, visibleParks, userLoc.lat, userLoc.lng])
+
+  function pickResult(p: Park) {
+    setQuery('')
+    setFlyTarget([p.lat, p.lng])
+    setOpenPark(p)
+  }
+
   const myPark = myPresence && presenceActive(myPresence, now) ? parkById(myPresence.parkId) : null
   function realCount(parkId: string): number {
     let c = presenceByPark.get(parkId)?.length ?? 0
@@ -166,6 +195,60 @@ export default function MapScreen() {
             <h1 className="text-xl font-extrabold tracking-tight text-[var(--ink)]">פארקים לידך</h1>
           </div>
           <NotificationsButton />
+        </div>
+
+        {/* Search + filter chips */}
+        <div className="mt-2 relative">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2 rounded-2xl bg-white border border-[var(--line)] px-3 py-2">
+              <span className="text-sm">🔍</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="חיפוש פארק או עיר…"
+                className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-park-300"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} className="text-park-300 text-sm" aria-label="נקה חיפוש">✕</button>
+              )}
+            </div>
+          </div>
+          <div className="mt-1.5 flex gap-1.5 overflow-x-auto no-scrollbar">
+            {[
+              { on: fFenced, set: setFFenced, label: '🚧 מגודר' },
+              { on: fWater, set: setFWater, label: '💧 ברזייה' },
+              { on: fLarge, set: setFLarge, label: '🐕 גדול' },
+            ].map((c) => (
+              <button
+                key={c.label}
+                onClick={() => c.set(!c.on)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold border transition-colors ${
+                  c.on ? 'text-white border-transparent' : 'bg-white text-park-600 border-[var(--line)]'
+                }`}
+                style={c.on ? { background: 'linear-gradient(135deg,#4fb84a,#2d9c3a)' } : undefined}
+              >
+                {c.label}
+              </button>
+            ))}
+            {(fFenced || fWater || fLarge) && (
+              <span className="shrink-0 self-center text-[11px] text-park-400">{visibleParks.length} פארקים</span>
+            )}
+          </div>
+          {searchResults.length > 0 && (
+            <div className="absolute top-full inset-x-0 mt-1 z-[700] rounded-2xl bg-white border border-[var(--line)] overflow-hidden"
+              style={{ boxShadow: '0 10px 30px rgba(20,60,30,0.15)' }}>
+              {searchResults.map(({ p, d }) => (
+                <button key={p.id} onClick={() => pickResult(p)} className="w-full flex items-center gap-2 px-3 py-2.5 text-right hover:bg-park-50 border-b border-park-50 last:border-0">
+                  <span>{p.fenced ? '🚧' : '🌳'}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-bold text-park-800 truncate">{p.name}</span>
+                    <span className="block text-[11px] text-park-400">{p.city}{p.area ? ` · ${p.area}` : ''} · {d.toFixed(1)} ק"מ</span>
+                  </span>
+                  {p.hasWater && <span className="text-xs">💧</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {liveDogs.length > 0 && (
@@ -212,7 +295,7 @@ export default function MapScreen() {
             <FlyTo target={flyTarget} />
             <Recenter loc={userLoc} trigger={recenterN} />
             <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} zIndexOffset={1000} />
-            {PARKS.map((p) => {
+            {visibleParks.map((p) => {
               const dogsHere = presenceByPark.get(p.id) ?? []
               const est = busyEstimate(p.dailyVisitors, now)
               const icon = dogsHere.length > 0 ? dogsIcon(dogsHere, est) : parkIcon(myPark?.id === p.id)
