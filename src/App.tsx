@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useStore } from './store'
-import { cityCenter } from './data/parks'
+import { presenceActive, useStore } from './store'
+import { allParks, cityCenter, distanceKm } from './data/parks'
+import { AUTO_CHECKIN_RADIUS_M } from './config'
 import Onboarding from './screens/Onboarding'
 import MapScreen from './screens/MapScreen'
 import FriendsScreen from './screens/FriendsScreen'
@@ -91,6 +92,48 @@ export default function App() {
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboarded, shareLocation])
+
+  // Refresh GPS whenever the app returns to the foreground, so the auto
+  // check-in below fires the moment someone arrives at the park and opens us.
+  useEffect(() => {
+    if (!onboarded || !('geolocation' in navigator)) return
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }, 'gps'),
+        () => {},
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
+      )
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboarded])
+
+  // ---- Auto check-in ----
+  // With location approved: standing within AUTO_CHECKIN_RADIUS_M of a park
+  // automatically starts the 1-hour "at the park" presence — no tap needed.
+  const autoCheckin = useStore((s) => s.autoCheckin)
+  const myPresence = useStore((s) => s.myPresence)
+  const locSource = useStore((s) => s.locSource)
+  const setPresence = useStore((s) => s.setPresence)
+  const showToast = useStore((s) => s.showToast)
+  const pushNotification = useStore((s) => s.pushNotification)
+  useEffect(() => {
+    if (!onboarded || !autoCheckin || locSource !== 'gps' || !userLoc) return
+    if (presenceActive(myPresence)) return // already checked in / heading
+    let best: { id: string; name: string; d: number } | null = null
+    for (const p of allParks()) {
+      const d = distanceKm(userLoc.lat, userLoc.lng, p.lat, p.lng) * 1000
+      if (!best || d < best.d) best = { id: p.id, name: p.name, d }
+    }
+    if (best && best.d <= AUTO_CHECKIN_RADIUS_M) {
+      setPresence(best.id, 'at_park', shareLocation)
+      showToast({ text: `זיהינו אותך ב${best.name} — סומנת אוטומטית לשעה 🐾`, photo: '📍' })
+      pushNotification({ text: `צ'ק-אין אוטומטי: ${best.name}`, kind: 'system' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLoc, locSource, onboarded, autoCheckin])
 
   // Backend gate: when connected, require sign-in before the app.
   if (isSupabaseConfigured) {

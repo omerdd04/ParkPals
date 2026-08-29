@@ -24,6 +24,8 @@ export default function MoreScreen() {
   const addComplaint = useStore((s) => s.addComplaint)
   const settings = useStore((s) => s.settings)
   const setSettings = useStore((s) => s.setSettings)
+  const autoCheckin = useStore((s) => s.autoCheckin)
+  const setAutoCheckin = useStore((s) => s.setAutoCheckin)
   const resetAll = useStore((s) => s.resetAll)
 
   const [showComplaint, setShowComplaint] = useState(false)
@@ -196,6 +198,7 @@ export default function MoreScreen() {
                   ))}
                 </div>
               </div>
+              <ToggleRow label="צ'ק-אין אוטומטי בפארק 📍" desc="כשמגיעים לפארק — סימון 'אני בפארק' לשעה, בלי לחיצה" on={autoCheckin} onChange={setAutoCheckin} />
               <ToggleRow label="ניגודיות גבוהה" desc="צבעים חזקים וקווים ברורים" on={settings.highContrast} onChange={(v) => setSettings({ highContrast: v })} />
               <ToggleRow label="הפחתת תנועה" desc="ביטול אנימציות ותנועות" on={settings.reduceMotion} onChange={(v) => setSettings({ reduceMotion: v })} />
             </div>

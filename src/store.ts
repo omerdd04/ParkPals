@@ -114,6 +114,9 @@ interface Store {
   appendChat: (msg: ChatMessage) => void
   serverParks: Park[]
   setServerParks: (parks: Park[]) => void
+  // Auto check-in near a park (GPS-based, on app open/foreground).
+  autoCheckin: boolean
+  setAutoCheckin: (on: boolean) => void
   // Park-feedback loop: every 3rd visit to a park raises ONE rotating question.
   parkVisits: Record<string, number>
   feedbackAsk: { parkId: string; qIndex: number } | null
@@ -180,6 +183,8 @@ export const useStore = create<Store>()(
       serverParks: [],
       setServerParks: (parks) => set({ serverParks: parks }),
 
+      autoCheckin: true,
+      setAutoCheckin: (on) => set({ autoCheckin: on }),
       parkVisits: {},
       feedbackAsk: null,
       dismissFeedbackAsk: () => set({ feedbackAsk: null }),
@@ -295,7 +300,7 @@ export const useStore = create<Store>()(
           shareLocation: false, userLoc: null, locSource: null,
           friends: isSupabaseConfigured ? [] : seedFriends(), chats: [], happinessLog: [], academy: {}, complaints: [],
           notifications: [], toast: null, settings: defaultSettings,
-          parkVisits: {}, feedbackAsk: null,
+          parkVisits: {}, feedbackAsk: null, autoCheckin: true,
         }),
     }),
     {
