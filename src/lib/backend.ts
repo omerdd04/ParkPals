@@ -284,6 +284,9 @@ interface ParkRow {
   size: string
   source: string
   daily_visitors: number
+  shade: boolean
+  lighting: boolean
+  benches: boolean
 }
 
 function rowToPark(r: ParkRow): Park {
@@ -299,6 +302,9 @@ function rowToPark(r: ParkRow): Park {
     size: (r.size as Park['size']) || 'medium',
     source: 'municipal',
     dailyVisitors: r.daily_visitors,
+    shade: r.shade,
+    lighting: r.lighting,
+    benches: r.benches,
   }
 }
 
@@ -317,6 +323,9 @@ export async function addPark(p: {
   fenced: boolean
   hasWater: boolean
   size: Park['size']
+  shade?: boolean
+  lighting?: boolean
+  benches?: boolean
 }): Promise<{ ok: boolean; message: string }> {
   if (!supabase) return { ok: false, message: 'השרת לא מחובר' }
   const uid = await currentUserId()
@@ -330,6 +339,9 @@ export async function addPark(p: {
     fenced: p.fenced,
     has_water: p.hasWater,
     size: p.size,
+    shade: p.shade ?? false,
+    lighting: p.lighting ?? false,
+    benches: p.benches ?? false,
     created_by: uid,
   })
   if (error) {
@@ -337,6 +349,20 @@ export async function addPark(p: {
     return { ok: false, message: error.message }
   }
   return { ok: true, message: `הפארק "${p.name}" נוסף למפה! 🎉` }
+}
+
+// ---- Park feedback (any signed-in user) -------------------------------------
+export async function submitParkFeedback(
+  parkId: string,
+  answers: { question: string; ok: boolean }[],
+): Promise<boolean> {
+  if (!supabase || answers.length === 0) return false
+  const uid = await currentUserId()
+  if (!uid) return false
+  const { error } = await supabase.from('park_feedback').insert(
+    answers.map((a) => ({ user_id: uid, park_id: parkId, question: a.question, ok: a.ok })),
+  )
+  return !error
 }
 
 // ---- Complaints -------------------------------------------------------------

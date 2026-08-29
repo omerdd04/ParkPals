@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { formatCode, useStore } from '../store'
 import type { TextScale } from '../store'
-import { PARKS, CITIES } from '../data/parks'
+import { allParks, CITIES } from '../data/parks'
 import { APP_NAME, CONTACT_EMAIL, ADMIN_EMAILS } from '../config'
 import Sheet from '../ui/Sheet'
 import DogAvatar from '../ui/DogAvatar'
@@ -38,7 +38,7 @@ export default function MoreScreen() {
   const [category, setCategory] = useState(CATEGORIES[0])
   const [text, setText] = useState('')
   const [sent, setSent] = useState(false)
-  const cityParks = PARKS.filter((p) => p.city === city)
+  const cityParks = allParks().filter((p) => p.city === city)
 
   // contact form
   const [contactKind, setContactKind] = useState(CONTACT_KINDS[0].key)
@@ -271,6 +271,9 @@ function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void })
   const [coords, setCoords] = useState('') // "31.7905, 34.6455" — paste from Google Maps
   const [fenced, setFenced] = useState(true)
   const [hasWater, setHasWater] = useState(false)
+  const [shade, setShade] = useState(false)
+  const [lighting, setLighting] = useState(false)
+  const [benches, setBenches] = useState(false)
   const [size, setSize] = useState<'small' | 'medium' | 'large'>('medium')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -295,7 +298,7 @@ function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void })
     setErr('')
     const res = await addPark({
       name: name.trim(), city: city.trim(), area: area.trim() || undefined,
-      lat: lat!, lng: lng!, fenced, hasWater, size,
+      lat: lat!, lng: lng!, fenced, hasWater, size, shade, lighting, benches,
     })
     setBusy(false)
     if (res.ok) {
@@ -328,6 +331,9 @@ function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void })
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setFenced(!fenced)} className={`chip border ${fenced ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>🚧 מגודר</button>
           <button onClick={() => setHasWater(!hasWater)} className={`chip border ${hasWater ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>💧 ברזייה</button>
+          <button onClick={() => setShade(!shade)} className={`chip border ${shade ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>🌳 צל</button>
+          <button onClick={() => setLighting(!lighting)} className={`chip border ${lighting ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>💡 תאורה</button>
+          <button onClick={() => setBenches(!benches)} className={`chip border ${benches ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>🪑 ספסלים</button>
           {(['small', 'medium', 'large'] as const).map((s) => (
             <button key={s} onClick={() => setSize(s)} className={`chip border ${size === s ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>
               {s === 'small' ? 'קטן' : s === 'medium' ? 'בינוני' : 'גדול'}

@@ -114,6 +114,10 @@ interface Store {
   appendChat: (msg: ChatMessage) => void
   serverParks: Park[]
   setServerParks: (parks: Park[]) => void
+  // Park-feedback loop: every 3rd visit to a park raises ONE rotating question.
+  parkVisits: Record<string, number>
+  feedbackAsk: { parkId: string; qIndex: number } | null
+  dismissFeedbackAsk: () => void
   setPresence: (parkId: string, kind: PresenceKind, sharesLocation: boolean) => void
   setUserLoc: (loc: { lat: number; lng: number } | null, source?: 'gps' | 'fallback') => void
   setShareLocation: (on: boolean) => void
@@ -176,10 +180,25 @@ export const useStore = create<Store>()(
       serverParks: [],
       setServerParks: (parks) => set({ serverParks: parks }),
 
+      parkVisits: {},
+      feedbackAsk: null,
+      dismissFeedbackAsk: () => set({ feedbackAsk: null }),
+
       setPresence: (parkId, kind, sharesLocation) => {
         // Single active presence: a new one replaces the previous (turn-on-only).
         set({ myPresence: { parkId, kind, sharesLocation, startedAt: Date.now() } })
         void backend.setPresence(parkId, kind, sharesLocation)
+        // Count "at park" check-ins; every 3rd visit to the same park raises
+        // one rotating condition question (never more than that).
+        if (kind === 'at_park') {
+          const visits = { ...get().parkVisits }
+          visits[parkId] = (visits[parkId] ?? 0) + 1
+          const n = visits[parkId]
+          set({
+            parkVisits: visits,
+            ...(n % 3 === 0 ? { feedbackAsk: { parkId, qIndex: Math.floor(n / 3) - 1 } } : {}),
+          })
+        }
       },
 
       setUserLoc: (loc, source) => set({ userLoc: loc, locSource: loc ? (source ?? 'gps') : null }),
@@ -276,6 +295,7 @@ export const useStore = create<Store>()(
           shareLocation: false, userLoc: null, locSource: null,
           friends: isSupabaseConfigured ? [] : seedFriends(), chats: [], happinessLog: [], academy: {}, complaints: [],
           notifications: [], toast: null, settings: defaultSettings,
+          parkVisits: {}, feedbackAsk: null,
         }),
     }),
     {

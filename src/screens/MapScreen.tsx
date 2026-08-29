@@ -9,6 +9,8 @@ import DogAvatar from '../ui/DogAvatar'
 import Sheet from '../ui/Sheet'
 import QuickChat from './QuickChat'
 import NotificationsButton from './NotificationsButton'
+import { PARK_QUESTIONS } from '../data/parkQuestions'
+import { submitParkFeedback } from '../lib/backend'
 
 // Empty park: a simple tree pin.
 function parkIcon(mine: boolean): L.DivIcon {
@@ -122,6 +124,12 @@ export default function MapScreen() {
   const [fFenced, setFFenced] = useState(false)
   const [fWater, setFWater] = useState(false)
   const [fLarge, setFLarge] = useState(false)
+
+  // Park condition feedback (rotating question every 3rd visit)
+  const feedbackAsk = useStore((s) => s.feedbackAsk)
+  const dismissFeedbackAsk = useStore((s) => s.dismissFeedbackAsk)
+  const showToast = useStore((s) => s.showToast)
+  const [surveyParkId, setSurveyParkId] = useState<string | null>(null)
   // Show real OSM street tiles; if they fail to load (blocked network / sandbox),
   // remove the layer so the CSS street-grid basemap shows cleanly instead of the
   // browser painting the failed tiles black.
@@ -307,7 +315,11 @@ export default function MapScreen() {
                 fallback pretending to be the user is worse than nothing. */}
             {hasGps && <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} zIndexOffset={1000} />}
             {visibleParks.map((p) => {
-              const dogsHere = presenceByPark.get(p.id) ?? []
+              let dogsHere = presenceByPark.get(p.id) ?? []
+              // Include MY dog in the park's circle when I'm checked in here.
+              if (myPark?.id === p.id && myPresence?.kind === 'at_park') {
+                dogsHere = [{ id: 'me', dogPhoto: dog.photo, presence: myPresence } as Friend, ...dogsHere]
+              }
               const est = busyEstimate(p.dailyVisitors, now)
               const icon = dogsHere.length > 0 ? dogsIcon(dogsHere, est) : parkIcon(myPark?.id === p.id)
               return (
@@ -336,6 +348,40 @@ export default function MapScreen() {
           </div>
         )}
 
+        {/* Rotating park-condition question (every 3rd visit) */}
+        {feedbackAsk && (() => {
+          const park = parkById(feedbackAsk.parkId)
+          const q = PARK_QUESTIONS[feedbackAsk.qIndex % PARK_QUESTIONS.length]
+          if (!park) return null
+          const answer = (ok: boolean) => {
+            void submitParkFeedback(park.id, [{ question: q.key, ok }])
+            showToast({ text: 'תודה! המשוב עוזר לכל הקהילה 🙏', photo: q.emoji })
+            dismissFeedbackAsk()
+          }
+          return (
+            <div className="absolute bottom-20 inset-x-3 z-[600] card !p-3 animate-pop">
+              <div className="flex items-start gap-2">
+                <span className="text-2xl">{q.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-park-800">{q.text}</div>
+                  <div className="text-[11px] text-park-400 truncate">{park.name}</div>
+                </div>
+                <button onClick={dismissFeedbackAsk} aria-label="סגירה" className="text-park-300 px-1">✕</button>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <button onClick={() => answer(true)} className="flex-1 rounded-xl bg-park-100 py-2 text-lg">👍</button>
+                <button onClick={() => answer(false)} className="flex-1 rounded-xl bg-pink-50 py-2 text-lg">👎</button>
+                <button
+                  onClick={() => { setSurveyParkId(park.id); dismissFeedbackAsk() }}
+                  className="shrink-0 text-xs font-semibold text-park-600 underline underline-offset-2 px-1"
+                >
+                  שאלון מלא
+                </button>
+              </div>
+            </div>
+          )
+        })()}
+
         <button onClick={() => setStatusSheet(true)} className="absolute bottom-4 left-4 z-[500] btn-primary !rounded-full !px-5 shadow-lg flex items-center gap-2">
           <span className="text-lg">🐾</span> אני יוצא לפארק
         </button>
@@ -358,6 +404,13 @@ export default function MapScreen() {
           🎯
         </button>
       </div>
+
+      {/* Full park-condition survey */}
+      <ParkSurveySheet
+        parkId={surveyParkId}
+        onClose={() => setSurveyParkId(null)}
+        onDone={() => { setSurveyParkId(null); showToast({ text: 'תודה על השאלון! 🙏', photo: '📝' }) }}
+      />
 
       <Sheet open={!!openPark} onClose={() => setOpenPark(null)} title={openPark?.name}>
         {openPark && (
@@ -413,6 +466,9 @@ function ParkDetail({
         <span className="chip bg-park-100 text-park-700">📍 {distance < 1 ? `${Math.round(distance * 1000)} מ'` : `${distance.toFixed(1)} ק"מ`}</span>
         {park.fenced && <span className="chip bg-park-100 text-park-700">🚧 מגודר</span>}
         {park.hasWater && <span className="chip bg-park-100 text-park-700">💧 ברזייה</span>}
+        {park.shade && <span className="chip bg-park-100 text-park-700">🌳 צל</span>}
+        {park.lighting && <span className="chip bg-park-100 text-park-700">💡 תאורה</span>}
+        {park.benches && <span className="chip bg-park-100 text-park-700">🪑 ספסלים</span>}
         <span className="chip bg-park-100 text-park-700">{park.size === 'large' ? 'גדול' : park.size === 'medium' ? 'בינוני' : 'קטן'}</span>
         {park.approx && <span className="chip bg-amber-50 text-amber-700 border border-amber-200">📍 מיקום משוער</span>}
       </div>
@@ -505,5 +561,51 @@ function StatusChooser({
         <button className="btn-ghost w-full" disabled={!parkId} onClick={() => onPick(parkId, 'heading', false)}>🚶 יוצא לכיוון ב-15 דק'</button>
       </div>
     </div>
+  )
+}
+
+// Full survey: all rotating questions at once, answered with 👍/👎 toggles.
+function ParkSurveySheet({ parkId, onClose, onDone }: { parkId: string | null; onClose: () => void; onDone: () => void }) {
+  const [answers, setAnswers] = useState<Record<string, boolean>>({})
+  const [busy, setBusy] = useState(false)
+  const park = parkId ? parkById(parkId) : null
+  useEffect(() => { setAnswers({}) }, [parkId])
+
+  async function submit() {
+    if (!parkId || busy) return
+    const list = Object.entries(answers).map(([question, ok]) => ({ question, ok }))
+    if (list.length === 0) return
+    setBusy(true)
+    await submitParkFeedback(parkId, list)
+    setBusy(false)
+    onDone()
+  }
+
+  return (
+    <Sheet open={!!parkId} onClose={onClose} title={park ? `שאלון על ${park.name} 📝` : 'שאלון'}>
+      <div className="space-y-2">
+        <p className="text-xs text-park-500">ענו על מה שאתם יודעים — כל תשובה עוזרת לקהילה ולעירייה.</p>
+        {PARK_QUESTIONS.map((q) => {
+          const val = answers[q.key]
+          return (
+            <div key={q.key} className="flex items-center gap-2 rounded-2xl border border-park-100 p-2.5">
+              <span className="text-xl">{q.emoji}</span>
+              <span className="flex-1 text-sm font-medium text-park-800">{q.text}</span>
+              <button
+                onClick={() => setAnswers((a) => ({ ...a, [q.key]: true }))}
+                className={`h-9 w-11 rounded-xl text-lg ${val === true ? 'bg-park-500' : 'bg-park-50'}`}
+              >👍</button>
+              <button
+                onClick={() => setAnswers((a) => ({ ...a, [q.key]: false }))}
+                className={`h-9 w-11 rounded-xl text-lg ${val === false ? 'bg-pink-400' : 'bg-park-50'}`}
+              >👎</button>
+            </div>
+          )
+        })}
+        <button className="btn-primary w-full" disabled={busy || Object.keys(answers).length === 0} onClick={submit}>
+          {busy ? 'שולח…' : 'שליחת השאלון'}
+        </button>
+      </div>
+    </Sheet>
   )
 }

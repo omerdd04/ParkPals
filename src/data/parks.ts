@@ -4,26 +4,9 @@ import type { Park } from '../types'
 // In production this would be sourced from municipal open-data + OpenStreetMap.
 // `dailyVisitors` is an approximate baseline used for the busy-hours estimate.
 export const PARKS: Park[] = [
-  // ---- Ashdod — the 12 official municipal dog parks (one per quarter), from
-  // the municipality's "גינות כלבים בעיר" page. Coordinates are quarter-level
-  // estimates (approx: true) until pinned exactly by the admin/community;
-  // Gan Meir Yaari (rova dalet, the pilot area) keeps the verified pin.
-  // Pins calibrated against Google Maps "dog park" results for Ashdod using
-  // fixed anchors (Ashdod-Yam fort, beaches, BIG). approx:true = still a
-  // neighborhood-level estimate (no visible pin on the reference map).
-  { id: 'ash-rovad-1', name: 'גן מאיר יערי – גינת כלבים', city: 'אשדוד', area: "רובע ד'", lat: 31.7945, lng: 34.639, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 50 },
-  { id: 'ash-elisheva', name: 'גן אלישבע – גינת כלבים', city: 'אשדוד', area: "רובע א'", lat: 31.811, lng: 34.64, fenced: true, hasWater: false, size: 'large', source: 'municipal', dailyVisitors: 30 },
-  { id: 'ash-lohamim', name: 'גן הלוחמים – גינת כלבים', city: 'אשדוד', area: "רובע ב'", lat: 31.809, lng: 34.648, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 24, approx: true },
-  { id: 'ash-avraham', name: 'גן אברהם – גינת כלבים', city: 'אשדוד', area: "רובע ה'", lat: 31.7965, lng: 34.6485, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 24 },
-  { id: 'ash-labiov', name: 'גן לביוב – גינת כלבים', city: 'אשדוד', area: "רובע ו'", lat: 31.792, lng: 34.652, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 24, approx: true },
-  { id: 'ash-sayfan', name: 'גן סייפן – גינת כלבים', city: 'אשדוד', area: "רובע ח'", lat: 31.7816, lng: 34.648, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 26 },
-  { id: 'ash-morim', name: 'גן הסתדרות המורים – גינת כלבים', city: 'אשדוד', area: "רובע ט'", lat: 31.781, lng: 34.6537, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 22 },
-  { id: 'ash-atikot', name: 'גן עתיקות – גינת כלבים', city: 'אשדוד', area: "רובע י'", lat: 31.774, lng: 34.65, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 22, approx: true },
-  { id: 'ash-golda', name: 'גן גולדה – גינת כלבים', city: 'אשדוד', area: 'רובע י"א', lat: 31.7805, lng: 34.6335, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 32 },
-  { id: 'ash-safra', name: 'גן אדמונד ספרא – גינת כלבים', city: 'אשדוד', area: 'רובע י"ב', lat: 31.7751, lng: 34.638, fenced: true, hasWater: false, size: 'large', source: 'municipal', dailyVisitors: 28 },
-  { id: 'ash-grin', name: 'גן אבנר גרין – גינת כלבים', city: 'אשדוד', area: 'רובע י"ג', lat: 31.7704, lng: 34.6416, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 20 },
-  { id: 'ash-merkazi', name: 'גן מרכזי – גינת כלבים', city: 'אשדוד', area: 'רובע ט"ו', lat: 31.762, lng: 34.633, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 20, approx: true },
-  { id: 'ash-hazan', name: 'פארק יעקב חזן – פינת כלבים', city: 'אשדוד', lat: 31.7714, lng: 34.6435, fenced: true, hasWater: false, size: 'medium', source: 'osm', dailyVisitors: 18 },
+  // ---- Ashdod ----
+  // Removed by owner decision: the Ashdod gardens are added by the admin from
+  // inside the app (exact pins, stored in the backend parks table).
 
   // ---- Tel Aviv ----
   { id: 'tlv-hayarkon', name: 'גינת כלבים פארק הירקון', city: 'תל אביב', lat: 32.0997, lng: 34.8003, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 65 },
@@ -63,7 +46,7 @@ export const PARKS: Park[] = [
   { id: 'eil-park', name: 'גינת כלבים שחמון', city: 'אילת', lat: 29.5560, lng: 34.9520, fenced: true, hasWater: true, size: 'small', source: 'osm', dailyVisitors: 12 },
 ]
 
-export const CITIES = Array.from(new Set(PARKS.map((p) => p.city))).sort((a, b) =>
+export const CITIES = Array.from(new Set(['אשדוד', ...PARKS.map((p) => p.city)])).sort((a, b) =>
   a.localeCompare(b, 'he'),
 )
 
@@ -101,7 +84,7 @@ export const DEFAULT_LOCATION = { lat: 31.7905, lng: 34.6455, label: "אשדוד
 // onboarding, so someone in Tel Aviv sees Tel Aviv parks — not Ashdod.
 export function cityCenter(city: string | undefined): { lat: number; lng: number } {
   if (!city) return { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng }
-  const inCity = PARKS.filter((p) => p.city === city.trim())
+  const inCity = allParks().filter((p) => p.city === city.trim())
   if (inCity.length === 0) return { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng }
   const lat = inCity.reduce((s, p) => s + p.lat, 0) / inCity.length
   const lng = inCity.reduce((s, p) => s + p.lng, 0) / inCity.length

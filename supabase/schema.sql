@@ -111,6 +111,26 @@ create table if not exists public.parks (
   created_at     timestamptz not null default now()
 );
 
+-- Extra amenity columns (idempotent for projects that created the table earlier).
+alter table public.parks add column if not exists shade    boolean not null default false;
+alter table public.parks add column if not exists lighting boolean not null default false;
+alter table public.parks add column if not exists benches  boolean not null default false;
+
+-- =============================================================================
+-- 7) park_feedback — quick community answers about park condition.
+--    Any signed-in user may report (one question at a time, or a full survey).
+-- =============================================================================
+create table if not exists public.park_feedback (
+  id         uuid        primary key default gen_random_uuid(),
+  user_id    uuid        references public.profiles (id) on delete set null,
+  park_id    text        not null,
+  question   text        not null,   -- e.g. 'maintained' | 'water_ok' | 'clean'
+  ok         boolean     not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists park_feedback_park_idx on public.park_feedback (park_id, created_at desc);
+
 -- The admin account (can add/edit/delete parks from inside the app).
 -- To add more admins later, extend this function's list.
 create or replace function public.is_admin()
@@ -139,6 +159,19 @@ create policy parks_read on public.parks
 drop policy if exists parks_admin_write on public.parks;
 create policy parks_admin_write on public.parks
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ---- park_feedback -----------------------------------------------------------
+-- Any signed-in user reports as themselves; everyone signed-in can read the
+-- aggregate (used later for park quality scores).
+alter table public.park_feedback enable row level security;
+
+drop policy if exists park_feedback_insert on public.park_feedback;
+create policy park_feedback_insert on public.park_feedback
+  for insert to authenticated with check (user_id = auth.uid());
+
+drop policy if exists park_feedback_read on public.park_feedback;
+create policy park_feedback_read on public.park_feedback
+  for select to authenticated using (true);
 
 -- ---- profiles ----------------------------------------------------------------
 -- Any signed-in user can read profiles (needed to look up a friend by code and
