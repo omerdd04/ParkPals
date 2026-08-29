@@ -104,11 +104,13 @@ export default function MapScreen() {
   const friends = useStore((s) => s.friends)
   const myPresence = useStore((s) => s.myPresence)
   const setPresence = useStore((s) => s.setPresence)
-  const shareLocation = useStore((s) => s.shareLocation)
   const storeLoc = useStore((s) => s.userLoc)
-  // If the user shares real GPS, use it; otherwise always follow the city they
-  // entered in onboarding, so changing city changes which parks are shown.
-  const userLoc = shareLocation && storeLoc ? storeLoc : cityCenter(owner.city)
+  const locSource = useStore((s) => s.locSource)
+  const setUserLoc = useStore((s) => s.setUserLoc)
+  // Real GPS wins; otherwise follow the city from onboarding, so changing city
+  // changes which parks are shown.
+  const hasGps = locSource === 'gps' && !!storeLoc
+  const userLoc = hasGps ? storeLoc! : cityCenter(owner.city)
 
   const [openPark, setOpenPark] = useState<Park | null>(null)
   const [statusSheet, setStatusSheet] = useState(false)
@@ -301,7 +303,9 @@ export default function MapScreen() {
             <KeepSized />
             <FlyTo target={flyTarget} />
             <Recenter loc={userLoc} trigger={recenterN} />
-            <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} zIndexOffset={1000} />
+            {/* "You are here" only when we actually have GPS — a city-center
+                fallback pretending to be the user is worse than nothing. */}
+            {hasGps && <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} zIndexOffset={1000} />}
             {visibleParks.map((p) => {
               const dogsHere = presenceByPark.get(p.id) ?? []
               const est = busyEstimate(p.dailyVisitors, now)
@@ -336,9 +340,17 @@ export default function MapScreen() {
           <span className="text-lg">🐾</span> אני יוצא לפארק
         </button>
 
-        {/* Recenter on my location */}
+        {/* Recenter on my location — also re-requests fresh GPS */}
         <button
-          onClick={() => setRecenterN((n) => n + 1)}
+          onClick={() => {
+            if ('geolocation' in navigator) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => { setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }, 'gps'); setRecenterN((n) => n + 1) },
+                () => setRecenterN((n) => n + 1),
+                { enableHighAccuracy: true, timeout: 8000 },
+              )
+            } else setRecenterN((n) => n + 1)
+          }}
           aria-label="חזרה למיקום שלי"
           className="absolute bottom-4 right-4 z-[500] h-12 w-12 rounded-full bg-white grid place-items-center text-xl border border-park-100"
           style={{ boxShadow: '0 6px 18px rgba(20,60,30,0.18)' }}

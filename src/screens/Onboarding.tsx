@@ -83,20 +83,20 @@ export default function Onboarding() {
 
   function requestLocation(share: boolean) {
     const fallback = cityCenter(city) // use the city they typed, not a fixed default
-    const finish = (loc: { lat: number; lng: number }) => {
-      setUserLoc(loc)
+    const finish = (loc: { lat: number; lng: number }, source: 'gps' | 'fallback') => {
+      setUserLoc(loc, source)
       setShareLocation(share)
       setLocSheet(false)
       setStep(3)
     }
     if (share && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => finish(fallback),
-        { timeout: 6000 },
+        (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }, 'gps'),
+        () => finish(fallback, 'fallback'),
+        { enableHighAccuracy: true, timeout: 10000 },
       )
     } else {
-      finish(fallback)
+      finish(fallback, 'fallback')
     }
   }
 

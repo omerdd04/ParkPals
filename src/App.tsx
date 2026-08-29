@@ -74,23 +74,21 @@ export default function App() {
     root.classList.toggle('a11y-reduce-motion', settings.reduceMotion)
   }, [settings])
 
-  // Keep location working across sessions: once the app is entered, refresh the
-  // position if sharing is on (or if we have none yet) so "nearest park" stays
-  // accurate. Falls back to the default area silently if the browser declines.
+  // Keep location fresh: whenever the app opens, try real GPS (high accuracy).
+  // If the browser declines, fall back to the onboarding city's center — and
+  // mark it as such so the map knows not to show it as "you are here".
   useEffect(() => {
     if (!onboarded) return
     const fallback = cityCenter(ownerCity)
     if (!('geolocation' in navigator)) {
-      if (!userLoc) setUserLoc(fallback)
+      if (!userLoc) setUserLoc(fallback, 'fallback')
       return
     }
-    if (shareLocation || !userLoc) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => { if (!userLoc) setUserLoc(fallback) },
-        { timeout: 6000, maximumAge: 60000 },
-      )
-    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }, 'gps'),
+      () => { if (!userLoc) setUserLoc(fallback, 'fallback') },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboarded, shareLocation])
 

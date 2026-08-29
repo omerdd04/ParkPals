@@ -94,6 +94,9 @@ interface Store {
   myPresence: Presence | null
   shareLocation: boolean
   userLoc: { lat: number; lng: number } | null
+  // Where userLoc came from: real GPS, or a city-center fallback. The map only
+  // trusts 'gps' for "you are here" / nearest-park.
+  locSource: 'gps' | 'fallback' | null
   friends: Friend[]
   chats: ChatMessage[]
   happinessLog: { id: string; action: CareAction; at: number }[]
@@ -112,7 +115,7 @@ interface Store {
   serverParks: Park[]
   setServerParks: (parks: Park[]) => void
   setPresence: (parkId: string, kind: PresenceKind, sharesLocation: boolean) => void
-  setUserLoc: (loc: { lat: number; lng: number } | null) => void
+  setUserLoc: (loc: { lat: number; lng: number } | null, source?: 'gps' | 'fallback') => void
   setShareLocation: (on: boolean) => void
   toggleFavorite: (friendId: string) => void
   addFriendByCode: (rawCode: string) => { ok: boolean; message: string }
@@ -144,6 +147,7 @@ export const useStore = create<Store>()(
       myPresence: null,
       shareLocation: false,
       userLoc: null,
+      locSource: null,
       friends: isSupabaseConfigured ? [] : seedFriends(),
       chats: [],
       happinessLog: [],
@@ -178,7 +182,7 @@ export const useStore = create<Store>()(
         void backend.setPresence(parkId, kind, sharesLocation)
       },
 
-      setUserLoc: (loc) => set({ userLoc: loc }),
+      setUserLoc: (loc, source) => set({ userLoc: loc, locSource: loc ? (source ?? 'gps') : null }),
       setShareLocation: (on) => set({ shareLocation: on }),
 
       toggleFavorite: (friendId) => {
@@ -269,7 +273,7 @@ export const useStore = create<Store>()(
       resetAll: () =>
         set({
           onboarded: false, owner: emptyOwner, dog: emptyDog, myPresence: null,
-          shareLocation: false, userLoc: null,
+          shareLocation: false, userLoc: null, locSource: null,
           friends: isSupabaseConfigured ? [] : seedFriends(), chats: [], happinessLog: [], academy: {}, complaints: [],
           notifications: [], toast: null, settings: defaultSettings,
         }),
