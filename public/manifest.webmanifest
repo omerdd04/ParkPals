@@ -2,15 +2,15 @@
   "name": "ParkPals · פארק כלבים חברתי",
   "short_name": "ParkPals",
   "description": "מפת פארקי כלבים ארצית, חברים לכלב, אקדמיה ומד שמחה",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f1faf0",
   "theme_color": "#3ea033",
   "lang": "he",
   "dir": "rtl",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
