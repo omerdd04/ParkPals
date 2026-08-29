@@ -133,6 +133,9 @@ export default function MapScreen() {
   const showToast = useStore((s) => s.showToast)
   const [surveyParkId, setSurveyParkId] = useState<string | null>(null)
 
+  // Full-screen map: hides the header (greeting, search, stories) for max map.
+  const [fullMap, setFullMap] = useState(false)
+
   // Admin: edit parks straight from the map
   const [isAdmin, setIsAdmin] = useState(false)
   const [editPark, setEditPark] = useState<Park | null>(null)
@@ -216,7 +219,7 @@ export default function MapScreen() {
 
   return (
     <div className="h-full flex flex-col relative">
-      <div className="px-4 pt-3 pb-2 bg-[var(--ground)] z-[500]">
+      {!fullMap && <div className="px-4 pt-3 pb-2 bg-[var(--ground)] z-[500]">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs text-[var(--muted)]">שלום {owner.name} {dog.photo.startsWith('data:') ? '🐾' : dog.photo}</div>
@@ -297,7 +300,7 @@ export default function MapScreen() {
             })}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="flex-1 relative min-h-0">
         {/* The map container carries a CSS street-grid background (see
@@ -395,6 +398,16 @@ export default function MapScreen() {
 
         <button onClick={() => setStatusSheet(true)} className="absolute bottom-4 left-4 z-[500] btn-primary !rounded-full !px-5 shadow-lg flex items-center gap-2">
           <span className="text-lg">🐾</span> אני יוצא לפארק
+        </button>
+
+        {/* Toggle full-screen map (hides the header) */}
+        <button
+          onClick={() => setFullMap((v) => !v)}
+          aria-label={fullMap ? 'יציאה ממסך מלא' : 'מפה במסך מלא'}
+          className={`absolute ${myPark && myPresence ? 'top-[86px]' : 'top-3'} left-3 z-[500] h-11 w-11 rounded-full bg-white grid place-items-center text-lg border border-park-100`}
+          style={{ boxShadow: '0 6px 18px rgba(20,60,30,0.18)' }}
+        >
+          {fullMap ? '✕' : '⛶'}
         </button>
 
         {/* Recenter on my location — also re-requests fresh GPS */}

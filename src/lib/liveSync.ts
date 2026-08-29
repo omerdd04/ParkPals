@@ -50,6 +50,7 @@ const MSG_SHORT: Record<string, string> = {
   not_this_time: 'לא הפעם 🙅',
   next_time: 'פעם הבאה 🔁',
   missed_today: 'פספסנו 😅',
+  share_phone: 'שיתף/ה איתך מספר טלפון 📞',
 }
 
 function onIncomingMessage(row: Record<string, unknown>): void {

@@ -4,7 +4,31 @@ import { useStore } from '../store'
 import Sheet from '../ui/Sheet'
 import Confetti from '../ui/Confetti'
 
+// Locked-for-launch teaser: builds anticipation instead of showing the WIP.
+import { ACADEMY_LOCKED } from '../config'
+
 export default function AcademyScreen() {
+  if (!ACADEMY_LOCKED) return <AcademyScreenFull />
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-8 text-center">
+      <div className="relative">
+        <div className="text-7xl">🎓</div>
+        <div className="absolute -bottom-2 -left-2 text-4xl drop-shadow">🔒</div>
+      </div>
+      <h1 className="mt-5 text-2xl font-extrabold text-park-800">האקדמיה בבנייה</h1>
+      <p className="mt-2 text-sm text-park-500 leading-relaxed max-w-xs">
+        אנחנו מכינים כאן משהו מיוחד: שיעורי אילוף, תארים לכלב שלכם,
+        אתגרים שבועיים — והפתעות שעוד אסור לנו לגלות 🤫
+      </p>
+      <div className="mt-6 rounded-2xl bg-white border border-[var(--line)] px-5 py-3 text-sm font-bold text-park-700"
+        style={{ boxShadow: '0 8px 26px rgba(20,60,30,0.10)' }}>
+        ✨ נפתח בקרוב — שווה לחכות
+      </div>
+    </div>
+  )
+}
+
+function AcademyScreenFull() {
   const academy = useStore((s) => s.academy)
   const dog = useStore((s) => s.dog)
   const completeLesson = useStore((s) => s.completeLesson)

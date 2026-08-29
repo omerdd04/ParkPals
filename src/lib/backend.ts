@@ -33,6 +33,7 @@ interface ProfileRow {
   favorites: string[]
   traits: string[]
   score: number
+  phone: string
 }
 
 interface PresenceRow {
@@ -50,6 +51,7 @@ function rowToOwner(r: ProfileRow): OwnerProfile {
     city: r.city,
     neighborhood: r.neighborhood,
     personalCode: r.personal_code ?? '',
+    phone: r.phone ?? '',
   }
 }
 
@@ -146,6 +148,7 @@ export async function saveMyProfile(
     city: owner.city,
     neighborhood: owner.neighborhood,
     personal_code: owner.personalCode || null,
+    phone: owner.phone ?? '',
     dog_name: dog.name,
     breed: dog.breed,
     age_years: dog.ageYears,
@@ -178,10 +181,27 @@ export async function loadFriends(): Promise<Friend[]> {
   const uid = await currentUserId()
   if (!uid) return []
 
-  const { data: links } = await supabase
+  let { data: links } = await supabase
     .from('friend_links')
     .select('friend_id, favorite')
     .eq('user_id', uid)
+
+  // Self-heal: if someone added me but I don't have them yet (old one-way
+  // friendships), create my side so friendship is always mutual.
+  const { data: reverse } = await supabase
+    .from('friend_links')
+    .select('user_id')
+    .eq('friend_id', uid)
+  const mine = new Set((links ?? []).map((l) => l.friend_id as string))
+  const missing = [...new Set((reverse ?? []).map((r) => r.user_id as string))].filter((id) => !mine.has(id))
+  if (missing.length > 0) {
+    await supabase.from('friend_links').upsert(
+      missing.map((id) => ({ user_id: uid, friend_id: id })),
+      { onConflict: 'user_id,friend_id', ignoreDuplicates: true },
+    )
+    const again = await supabase.from('friend_links').select('friend_id, favorite').eq('user_id', uid)
+    links = again.data
+  }
   if (!links || links.length === 0) return []
 
   const ids = links.map((l) => l.friend_id as string)

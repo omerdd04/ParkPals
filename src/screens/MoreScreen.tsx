@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { formatCode, useStore } from '../store'
 import type { TextScale } from '../store'
 import { allParks, CITIES } from '../data/parks'
+import { TREAT_GROUPS, TOY_GROUPS, FAVORITE_GROUPS, TRAIT_GROUPS } from '../data/profileOptions'
+import type { OptionGroup } from '../data/profileOptions'
 import { APP_NAME, CONTACT_EMAIL, ADMIN_EMAILS } from '../config'
 import Sheet from '../ui/Sheet'
 import DogAvatar from '../ui/DogAvatar'
@@ -29,6 +31,7 @@ export default function MoreScreen() {
   const setAutoCheckin = useStore((s) => s.setAutoCheckin)
   const resetAll = useStore((s) => s.resetAll)
 
+  const [showEditProfile, setShowEditProfile] = useState(false)
   const [showComplaint, setShowComplaint] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showContact, setShowContact] = useState(false)
@@ -104,6 +107,7 @@ export default function MoreScreen() {
       </button>
 
       <div className="space-y-2">
+        <MenuItem emoji="✏️" title="עריכת פרופיל" subtitle="שם, טלפון, חטיפים, משחקים, אופי ועוד" onClick={() => setShowEditProfile(true)} />
         <MenuItem emoji="📮" title="תיבת תלונות פארקים ארצית" subtitle="דווחו על בעיה — נעביר לעירייה" onClick={() => setShowComplaint(true)} />
         <MenuItem emoji="📋" title={`התלונות שלי (${complaints.length})`} subtitle="מעקב אחרי הדיווחים ששלחת" onClick={() => setShowHistory(true)} />
         <MenuItem emoji="⚙️" title="הגדרות ונגישות" subtitle="גודל טקסט, ניגודיות, הפחתת תנועה ועוד" onClick={() => setShowSettings(true)} />
@@ -114,6 +118,8 @@ export default function MoreScreen() {
           <MenuItem emoji="📥" title="תלונות שהתקבלו (מנהל)" subtitle="כל הדיווחים — מי, מתי ועל מה" onClick={openAdminComplaints} />
         )}
       </div>
+
+      <ProfileEditSheet open={showEditProfile} onClose={() => setShowEditProfile(false)} />
 
       {isAdmin && <AddParkSheet open={showAddPark} onClose={() => setShowAddPark(false)} />}
 
@@ -411,6 +417,119 @@ function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void })
           {busy ? 'מוסיף…' : 'הוספה למפה הארצית'}
         </button>
       </div>
+    </Sheet>
+  )
+}
+
+
+// ---- Edit profile: owner details, phone, and the dog's favorite things ----
+function ChipGroups({ groups, selected, onToggle }: { groups: OptionGroup[]; selected: string[]; onToggle: (v: string) => void }) {
+  return (
+    <div className="space-y-2">
+      {groups.map((g) => (
+        <div key={g.key}>
+          <div className="text-[11px] font-semibold text-park-500 mb-1">{g.emoji} {g.title}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {g.options.map((o) => {
+              const on = selected.includes(o)
+              return (
+                <button key={o} onClick={() => onToggle(o)}
+                  className={`chip border text-xs ${on ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>
+                  {o}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ProfileEditSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const owner = useStore((s) => s.owner)
+  const dog = useStore((s) => s.dog)
+  const updateProfile = useStore((s) => s.updateProfile)
+  const showToast = useStore((s) => s.showToast)
+
+  const [name, setName] = useState(owner.name)
+  const [city, setCity] = useState(owner.city)
+  const [neighborhood, setNeighborhood] = useState(owner.neighborhood)
+  const [phone, setPhone] = useState(owner.phone ?? '')
+  const [dogName, setDogName] = useState(dog.name)
+  const [breed, setBreed] = useState(dog.breed)
+  const [treats, setTreats] = useState<string[]>(dog.treats)
+  const [toys, setToys] = useState<string[]>(dog.toys)
+  const [favorites, setFavorites] = useState<string[]>(dog.favorites)
+  const [traits, setTraits] = useState<string[]>(dog.traits)
+  const [section, setSection] = useState<'owner' | 'treats' | 'toys' | 'favorites' | 'traits'>('owner')
+
+  // Refresh the form each time the sheet opens (profile may have synced).
+  useEffect(() => {
+    if (!open) return
+    setName(owner.name); setCity(owner.city); setNeighborhood(owner.neighborhood); setPhone(owner.phone ?? '')
+    setDogName(dog.name); setBreed(dog.breed)
+    setTreats(dog.treats); setToys(dog.toys); setFavorites(dog.favorites); setTraits(dog.traits)
+    setSection('owner')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const toggle = (list: string[], set: (v: string[]) => void) => (v: string) =>
+    set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
+
+  function save() {
+    updateProfile(
+      { ...owner, name: name.trim(), city: city.trim(), neighborhood: neighborhood.trim(), phone: phone.trim() },
+      { ...dog, name: dogName.trim(), breed: breed.trim(), treats, toys, favorites, traits },
+    )
+    showToast({ text: 'הפרופיל עודכן ✅', photo: dog.photo })
+    onClose()
+  }
+
+  const tabs = [
+    { key: 'owner', label: '👤 פרטים' },
+    { key: 'treats', label: '🦴 חטיפים' },
+    { key: 'toys', label: '⚽ משחקים' },
+    { key: 'favorites', label: '❤️ אהובים' },
+    { key: 'traits', label: '🎭 אופי' },
+  ] as const
+
+  return (
+    <Sheet open={open} onClose={onClose} title="עריכת פרופיל ✏️">
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-3">
+        {tabs.map((t) => (
+          <button key={t.key} onClick={() => setSection(t.key)}
+            className={`chip border shrink-0 ${section === t.key ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="max-h-[55vh] overflow-y-auto no-scrollbar">
+        {section === 'owner' && (
+          <div className="space-y-2.5">
+            <input className="w-full rounded-2xl border border-park-200 p-3" value={name} onChange={(e) => setName(e.target.value)} placeholder="השם שלך" />
+            <div className="grid grid-cols-2 gap-2">
+              <input className="rounded-2xl border border-park-200 p-3" value={city} onChange={(e) => setCity(e.target.value)} placeholder="עיר" />
+              <input className="rounded-2xl border border-park-200 p-3" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="שכונה" />
+            </div>
+            <div>
+              <input dir="ltr" type="tel" inputMode="tel" className="w-full rounded-2xl border border-park-200 p-3 font-mono" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9+-]/g, ''))} placeholder="05X-XXXXXXX (לא חובה)" />
+              <p className="mt-1 text-[11px] text-park-400">📞 המספר נשאר פרטי — הוא נשלח לחבר רק כשלוחצים "שתפו את המספר שלי" בצ'אט.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input className="rounded-2xl border border-park-200 p-3" value={dogName} onChange={(e) => setDogName(e.target.value)} placeholder="שם הכלב" />
+              <input className="rounded-2xl border border-park-200 p-3" value={breed} onChange={(e) => setBreed(e.target.value)} placeholder="גזע" />
+            </div>
+          </div>
+        )}
+        {section === 'treats' && <ChipGroups groups={TREAT_GROUPS} selected={treats} onToggle={toggle(treats, setTreats)} />}
+        {section === 'toys' && <ChipGroups groups={TOY_GROUPS} selected={toys} onToggle={toggle(toys, setToys)} />}
+        {section === 'favorites' && <ChipGroups groups={FAVORITE_GROUPS} selected={favorites} onToggle={toggle(favorites, setFavorites)} />}
+        {section === 'traits' && <ChipGroups groups={TRAIT_GROUPS} selected={traits} onToggle={toggle(traits, setTraits)} />}
+      </div>
+
+      <button className="btn-primary w-full mt-3" onClick={save}>שמירה</button>
     </Sheet>
   )
 }

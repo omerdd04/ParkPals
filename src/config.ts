@@ -13,3 +13,6 @@ export const ADMIN_EMAILS = ['omerdd04@gmail.com']
 // this radius of a park, the user is automatically marked "at the park" for an
 // hour — no tap needed. ~500m ≈ a square kilometer centered on the park.
 export const AUTO_CHECKIN_RADIUS_M = 500
+
+// Academy is gated for launch: locked tab that teases what's coming.
+export const ACADEMY_LOCKED = true

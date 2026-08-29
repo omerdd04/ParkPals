@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { presenceActive, useStore } from './store'
 import { allParks, cityCenter, distanceKm } from './data/parks'
-import { AUTO_CHECKIN_RADIUS_M } from './config'
+import { ACADEMY_LOCKED, AUTO_CHECKIN_RADIUS_M } from './config'
 import Onboarding from './screens/Onboarding'
 import MapScreen from './screens/MapScreen'
 import FriendsScreen from './screens/FriendsScreen'
@@ -22,7 +22,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'map', label: 'מפה', icon: '🗺️' },
   { id: 'friends', label: 'חברים', icon: '👥' },
   { id: 'dog', label: 'הכלב שלי', icon: '🐾' },
-  { id: 'academy', label: 'אקדמיה', icon: '🎓' },
+  { id: 'academy', label: 'אקדמיה', icon: ACADEMY_LOCKED ? '🔒' : '🎓' },
   { id: 'more', label: 'עוד', icon: '⚙️' },
 ]
 

@@ -110,6 +110,7 @@ interface Store {
   // actions
   completeOnboarding: (owner: OwnerProfile, dog: DogProfile) => void
   hydrateProfile: (owner: OwnerProfile, dog: DogProfile, onboarded: boolean) => void
+  updateProfile: (owner: OwnerProfile, dog: DogProfile) => void
   setFriends: (friends: Friend[]) => void
   setChats: (chats: ChatMessage[]) => void
   appendChat: (msg: ChatMessage) => void
@@ -143,7 +144,7 @@ interface Store {
   resetAll: () => void
 }
 
-const emptyOwner: OwnerProfile = { name: '', city: '', neighborhood: '', personalCode: '' }
+const emptyOwner: OwnerProfile = { name: '', city: '', neighborhood: '', personalCode: '', phone: '' }
 const emptyDog: DogProfile = {
   name: '', breed: '', ageYears: 1, size: 'medium', energy: 'balanced',
   gender: 'male', neutered: false, photo: '🐕',
@@ -181,6 +182,8 @@ export const useStore = create<Store>()(
       // Load profile coming from the backend as the source of truth (used right
       // after sign-in). Only marks onboarded when the backend has a real name.
       hydrateProfile: (owner, dog, onboarded) => set({ owner, dog, onboarded }),
+      // In-app profile edit; the App sync effect pushes it to the backend.
+      updateProfile: (owner, dog) => set({ owner, dog }),
 
       setFriends: (friends) => set({ friends }),
       setChats: (chats) => set({ chats }),
@@ -330,6 +333,7 @@ const QUICK_REPLY_SHORT: Record<QuickMsgType, string> = {
   not_this_time: 'לא הפעם 🙅',
   next_time: 'פעם הבאה 🔁',
   missed_today: 'פספסנו 😅',
+  share_phone: 'שיתף/ה מספר טלפון 📞',
 }
 
 // ---- Presence helpers ----

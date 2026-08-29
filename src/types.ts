@@ -23,7 +23,8 @@ export interface OwnerProfile {
   name: string
   city: string
   neighborhood: string
-  personalCode: string // shareable friend code e.g. "ONX-4KD2"
+  personalCode: string // shareable friend code e.g. "PP-4KD2"
+  phone?: string // optional; only revealed to a friend by an explicit share tap
 }
 
 export interface Park {
@@ -73,6 +74,7 @@ export type QuickMsgType =
   | 'next_time'
   | 'missed_today'
   | 'on_my_way'
+  | 'share_phone' // parkName field carries the number for this type
 
 export interface ChatMessage {
   id: string

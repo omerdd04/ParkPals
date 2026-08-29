@@ -32,6 +32,7 @@ create table if not exists public.profiles (
   favorites     text[]      not null default '{}',
   traits        text[]      not null default '{}',
   score         int         not null default 0,      -- happiness average (drives frame)
+  phone         text        not null default '',     -- optional, shared only by explicit tap
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -111,7 +112,8 @@ create table if not exists public.parks (
   created_at     timestamptz not null default now()
 );
 
--- Extra amenity columns (idempotent for projects that created the table earlier).
+-- Extra columns (idempotent for projects that created tables earlier).
+alter table public.profiles add column if not exists phone text not null default '';
 alter table public.parks add column if not exists shade    boolean not null default false;
 alter table public.parks add column if not exists lighting boolean not null default false;
 alter table public.parks add column if not exists benches  boolean not null default false;
@@ -210,6 +212,12 @@ create policy friend_links_own on public.friend_links
 drop policy if exists friend_links_insert_mutual on public.friend_links;
 create policy friend_links_insert_mutual on public.friend_links
   for insert to authenticated with check (user_id = auth.uid() or friend_id = auth.uid());
+
+-- You may also SEE rows where someone added you — the app uses this to
+-- self-heal old one-way friendships into mutual ones.
+drop policy if exists friend_links_see_reverse on public.friend_links;
+create policy friend_links_see_reverse on public.friend_links
+  for select to authenticated using (friend_id = auth.uid());
 
 -- ---- messages ----------------------------------------------------------------
 -- You read messages you sent or received; you may send only as yourself.

@@ -10,6 +10,7 @@ export const MSG_LABEL: Record<QuickMsgType, string> = {
   not_this_time: '🙅 לא הפעם',
   next_time: '🔁 פעם הבאה',
   missed_today: '😅 פספסנו אחד את השני היום',
+  share_phone: '📞 שיתוף מספר טלפון',
 }
 
 // The only messages a user can send — pure tap, no typing.
@@ -31,6 +32,7 @@ interface Props {
 export default function QuickChat({ friend, parkName, onClose }: Props) {
   const chats = useStore((s) => s.chats)
   const sendMessage = useStore((s) => s.sendMessage)
+  const myPhone = useStore((s) => s.owner.phone ?? '')
 
   if (!friend) return null
   const thread = chats.filter((c) => c.friendId === friend.id).sort((a, b) => a.at - b.at)
@@ -56,8 +58,21 @@ export default function QuickChat({ friend, parkName, onClose }: Props) {
                 m.fromMe ? 'bg-park-500 text-white' : 'bg-white border border-park-200 text-park-800'
               }`}
             >
-              {MSG_LABEL[m.type]}
-              {m.parkName && <div className="text-[11px] opacity-80 mt-0.5">📍 {m.parkName}</div>}
+              {m.type === 'share_phone' ? (
+                <>
+                  📞 {m.fromMe ? 'שיתפת מספר טלפון' : 'קיבלת מספר טלפון'}
+                  {m.parkName && (
+                    <a href={`tel:${m.parkName}`} dir="ltr" className="block mt-0.5 font-mono underline underline-offset-2">
+                      {m.parkName}
+                    </a>
+                  )}
+                </>
+              ) : (
+                <>
+                  {MSG_LABEL[m.type]}
+                  {m.parkName && <div className="text-[11px] opacity-80 mt-0.5">📍 {m.parkName}</div>}
+                </>
+              )}
             </div>
           </div>
         ))}
@@ -75,6 +90,19 @@ export default function QuickChat({ friend, parkName, onClose }: Props) {
           </button>
         ))}
       </div>
+
+      {myPhone ? (
+        <button
+          onClick={() => sendMessage(friend.id, 'share_phone', myPhone)}
+          className="mt-2 w-full btn-soft text-sm !py-2.5 font-semibold"
+        >
+          📞 שתפו את המספר שלי ({myPhone})
+        </button>
+      ) : (
+        <p className="mt-2 text-center text-[11px] text-park-400">
+          רוצים לשתף מספר טלפון? הוסיפו אותו ב"עוד ← עריכת פרופיל" 📞
+        </p>
+      )}
     </Sheet>
   )
 }
