@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import '@maplibre/maplibre-gl-leaflet'
 import { PARKS, parkById, distanceKm, cityCenter } from '../data/parks'
 import { busyEstimate, presenceActive, presenceRemainingMs, useStore } from '../store'
 import type { Friend, Park } from '../types'
@@ -17,14 +17,12 @@ import { ADMIN_EMAILS, MAPTILER_KEY } from '../config'
 import { refreshParks } from '../lib/liveSync'
 
 // Empty park: a simple tree pin.
-function parkIcon(mine: boolean): L.DivIcon {
+function parkHTML(mine: boolean): string {
   const ring = mine ? 'box-shadow:0 0 0 3px #2d9c3a;' : ''
-  return L.divIcon({
-    className: '',
-    html: `<div style="position:relative"><div style="width:36px;height:36px;border-radius:50% 50% 50% 0;background:#fff;transform:rotate(-45deg);border:2px solid #2d9c3a;${ring}display:grid;place-items:center;box-shadow:0 3px 8px rgba(0,0,0,.22)"><span style="transform:rotate(45deg);font-size:17px">🌳</span></div></div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
-  })
+  return `<div style="position:relative"><div style="width:36px;height:36px;border-radius:50% 50% 50% 0;background:#fff;transform:rotate(-45deg);border:2px solid #2d9c3a;${ring}display:grid;place-items:center;box-shadow:0 3px 8px rgba(0,0,0,.22)"><span style="transform:rotate(45deg);font-size:17px">🌳</span></div></div>`
+}
+function parkIcon(mine: boolean): L.DivIcon {
+  return L.divIcon({ className: '', html: parkHTML(mine), iconSize: [36, 36], iconAnchor: [18, 36] })
 }
 
 // Leaflet divIcons take raw HTML strings (not JSX), so anything user-controlled
@@ -43,7 +41,7 @@ function safeAvatarHTML(photo: string): string {
 
 // Park with live dogs: floating, overlapping profile circles (Instagram-style),
 // with a heart and an optional "+N". This is what shows over a busy park.
-function dogsIcon(dogs: Friend[], estimate: number): L.DivIcon {
+function dogsHTML(dogs: Friend[], estimate: number): string {
   const shown = dogs.slice(0, 3)
   const circles = shown
     .map((d, i) => {
@@ -55,60 +53,154 @@ function dogsIcon(dogs: Friend[], estimate: number): L.DivIcon {
   const extra = totalExtra > 0
     ? `<div style="margin-inline-start:-12px;z-index:1;width:34px;height:34px;border-radius:50%;background:#14231a;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,.25)">+${totalExtra}</div>`
     : ''
+  return `<div class="map-dog" style="display:flex;align-items:center;position:relative">${circles}${extra}<span class="map-dog__heart">💚</span></div>`
+}
+function dogsIcon(dogs: Friend[], estimate: number): L.DivIcon {
+  const shown = dogs.slice(0, 3)
+  const totalExtra = dogs.length - shown.length + estimate
   const width = 46 + (shown.length - 1) * 30 + (totalExtra > 0 ? 26 : 0)
-  return L.divIcon({
-    className: '',
-    html: `<div class="map-dog" style="display:flex;align-items:center;position:relative">${circles}${extra}<span class="map-dog__heart">💚</span></div>`,
-    iconSize: [width, 52],
-    iconAnchor: [width / 2, 46],
-  })
+  return L.divIcon({ className: '', html: dogsHTML(dogs, estimate), iconSize: [width, 52], iconAnchor: [width / 2, 46] })
 }
 
+function meHTML(photo: string): string {
+  return `<div class="map-dog__inner" style="width:40px;height:40px;border:3px solid #2563eb;box-shadow:0 2px 8px rgba(0,0,0,.3)">${safeAvatarHTML(photo)}</div>`
+}
 function meIcon(photo: string): L.DivIcon {
-  return L.divIcon({
-    className: '',
-    html: `<div class="map-dog__inner" style="width:40px;height:40px;border:3px solid #2563eb;box-shadow:0 2px 8px rgba(0,0,0,.3)">${safeAvatarHTML(photo)}</div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-  })
+  return L.divIcon({ className: '', html: meHTML(photo), iconSize: [40, 40], iconAnchor: [20, 20] })
 }
 
-// Vector basemap: OpenFreeMap "liberty" style rendered by MapLibre GL under
-// the Leaflet markers — free, keyless, and no vendor name burned into the map.
-// Robust fallback chain: if WebGL is unavailable or the style fails to load
-// within a few seconds, we swap to clean Esri street tiles (also unbranded),
-// so there is ALWAYS a real map.
-type GLLayer = L.Layer & { getMaplibreMap?: () => { on?: (ev: string, cb: (e?: unknown) => void) => void } }
+// Primary map: MapLibre GL connected DIRECTLY (no Leaflet bridge — the bridge
+// was what broke on iPhone). Same engine as openfreemap.org's own demo, which
+// the owner confirmed renders beautifully on device. Falls back to the Leaflet
+// raster map below if the style can't load or WebGL is unavailable.
+export interface ParkMarkerData {
+  p: Park
+  dogsHere: Friend[]
+  est: number
+  mine: boolean
+}
 
-function VectorBase({ onFail }: { onFail: () => void }) {
-  const map = useMap()
+let rtlLoaded = false
+function ensureRTL() {
+  if (rtlLoaded) return
+  rtlLoaded = true
+  try {
+    // Hebrew label shaping.
+    void maplibregl.setRTLTextPlugin(
+      'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.min.js',
+      true,
+    )
+  } catch { /* already set */ }
+}
+
+function GLMap({
+  center, hasGps, meLoc, dogPhoto, markers, markersSig, flyTarget, recenterN, onOpenPark, onFail,
+}: {
+  center: { lat: number; lng: number }
+  hasGps: boolean
+  meLoc: { lat: number; lng: number }
+  dogPhoto: string
+  markers: ParkMarkerData[]
+  markersSig: string
+  flyTarget: [number, number] | null
+  recenterN: number
+  onOpenPark: (p: Park) => void
+  onFail: () => void
+}) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<maplibregl.Map | null>(null)
+  const parkMarkersRef = useRef<maplibregl.Marker[]>([])
+  const meMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const [glReady, setGlReady] = useState(false)
+  const openParkRef = useRef(onOpenPark)
+  openParkRef.current = onOpenPark
+
+  // Init once.
   useEffect(() => {
-    const factory = (L as unknown as { maplibreGL?: (opts: { style: string }) => GLLayer }).maplibreGL
-    if (!factory) { onFail(); return }
-    let gl: GLLayer | null = null
+    if (!boxRef.current) return
+    ensureRTL()
     let loaded = false
-    let cancelled = false
-    const fail = () => { if (!cancelled && !loaded) onFail() }
+    let map: maplibregl.Map
     try {
-      gl = factory({ style: 'https://tiles.openfreemap.org/styles/liberty' })
-      gl.addTo(map)
-      const ml = gl.getMaplibreMap?.()
-      ml?.on?.('load', () => { loaded = true })
-      ml?.on?.('error', () => fail())
+      map = new maplibregl.Map({
+        container: boxRef.current,
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [center.lng, center.lat],
+        zoom: 14,
+        attributionControl: false,
+      })
     } catch {
       onFail()
       return
     }
-    // Hard timeout: no style within 7s (slow network, blocked host) → raster.
-    const t = window.setTimeout(fail, 7000)
+    map.dragRotate.disable()
+    map.touchZoomRotate.disableRotation()
+    map.on('load', () => { loaded = true; setGlReady(true) })
+    map.on('error', (e: unknown) => { void e; if (!loaded) { onFail() } })
+    const t = window.setTimeout(() => { if (!loaded) onFail() }, 8000)
+    const ro = new ResizeObserver(() => map.resize())
+    ro.observe(boxRef.current)
+    mapRef.current = map
     return () => {
-      cancelled = true
       window.clearTimeout(t)
-      if (gl) map.removeLayer(gl)
+      ro.disconnect()
+      parkMarkersRef.current.forEach((m: maplibregl.Marker) => m.remove())
+      meMarkerRef.current?.remove()
+      map.remove()
+      mapRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map])
-  return null
+  }, [])
+
+  // Park markers — rebuilt only when their visual signature actually changes.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !glReady) return
+    parkMarkersRef.current.forEach((m: maplibregl.Marker) => m.remove())
+    parkMarkersRef.current = []
+    for (const { p, dogsHere, est, mine } of markers) {
+      const el = document.createElement('div')
+      el.innerHTML = dogsHere.length > 0 ? dogsHTML(dogsHere, est) : parkHTML(mine)
+      el.style.cursor = 'pointer'
+      el.style.zIndex = dogsHere.length > 0 ? '500' : '10'
+      el.addEventListener('click', (e) => { e.stopPropagation(); openParkRef.current(p) })
+      const mk = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([p.lng, p.lat])
+        .addTo(map)
+      parkMarkersRef.current.push(mk)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markersSig, glReady])
+
+  // "You are here" marker follows real GPS.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !glReady) return
+    if (!hasGps) { meMarkerRef.current?.remove(); meMarkerRef.current = null; return }
+    if (!meMarkerRef.current) {
+      const el = document.createElement('div')
+      el.innerHTML = meHTML(dogPhoto)
+      el.style.zIndex = '1000'
+      meMarkerRef.current = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([meLoc.lng, meLoc.lat])
+        .addTo(map)
+    } else {
+      meMarkerRef.current.setLngLat([meLoc.lng, meLoc.lat])
+    }
+  }, [hasGps, meLoc.lat, meLoc.lng, dogPhoto, glReady])
+
+  // Fly-to from search / park pick.
+  useEffect(() => {
+    if (flyTarget && mapRef.current) mapRef.current.flyTo({ center: [flyTarget[1], flyTarget[0]], zoom: 15 })
+  }, [flyTarget])
+
+  // Recenter button.
+  useEffect(() => {
+    if (recenterN > 0 && mapRef.current) mapRef.current.flyTo({ center: [meLoc.lng, meLoc.lat], zoom: 15 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recenterN])
+
+  return <div ref={boxRef} className="absolute inset-0" style={{ background: '#eef3ea' }} />
 }
 
 // Raster fallback: standard OSM — not the prettiest, but the FRESHEST data
@@ -261,6 +353,27 @@ export default function MapScreen() {
     [parks, fFenced, fWater, fLarge],
   )
 
+  const myPark = myPresence && presenceActive(myPresence, now) ? parkById(myPresence.parkId) : null
+
+  const parkMarkerData: ParkMarkerData[] = useMemo(() =>
+    visibleParks.map((p) => {
+      let dogsHere = presenceByPark.get(p.id) ?? []
+      if (myPark?.id === p.id && myPresence?.kind === 'at_park') {
+        dogsHere = [{ id: 'me', dogPhoto: dog.photo, presence: myPresence } as Friend, ...dogsHere]
+      }
+      return { p, dogsHere, est: busyEstimate(p.dailyVisitors, now), mine: myPark?.id === p.id }
+    }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [visibleParks, presenceByPark, myPark?.id, myPresence?.kind, dog.photo])
+
+  const parkMarkersSig = useMemo(
+    () => parkMarkerData
+      .map(({ p, dogsHere, est, mine }) =>
+        `${p.id}:${mine ? 1 : 0}:${est}:${dogsHere.map((d) => d.id + (d.presence?.kind ?? '')).join(',')}`)
+      .join('|'),
+    [parkMarkerData],
+  )
+
   const searchResults = useMemo(() => {
     const q = query.trim()
     if (!q) return []
@@ -277,7 +390,6 @@ export default function MapScreen() {
     setOpenPark(p)
   }
 
-  const myPark = myPresence && presenceActive(myPresence, now) ? parkById(myPresence.parkId) : null
   function realCount(parkId: string): number {
     let c = presenceByPark.get(parkId)?.length ?? 0
     if (myPark?.id === parkId && myPresence?.kind === 'at_park') c += 1
@@ -377,35 +489,36 @@ export default function MapScreen() {
             .leaflet-container in index.css). Real OSM street tiles render on top
             where the network allows; when blocked, tiles fall back to a
             transparent pixel so the CSS grid shows instead of a blank screen. */}
-        {mapReady && (
+        {mapReady && !MAPTILER_KEY && !vectorFailed && (
+          <GLMap
+            center={userLoc}
+            hasGps={hasGps}
+            meLoc={userLoc}
+            dogPhoto={dog.photo}
+            markers={parkMarkerData}
+            markersSig={parkMarkersSig}
+            flyTarget={flyTarget}
+            recenterN={recenterN}
+            onOpenPark={setOpenPark}
+            onFail={() => setVectorFailed(true)}
+          />
+        )}
+        {mapReady && (MAPTILER_KEY || vectorFailed) && (
           <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false} attributionControl={false}>
-            {MAPTILER_KEY
-              ? <MapTilerBase />
-              : vectorFailed ? <RasterBase /> : <VectorBase onFail={() => setVectorFailed(true)} />}
-                        <KeepSized />
+            {MAPTILER_KEY ? <MapTilerBase /> : <RasterBase />}
+            <KeepSized />
             <FlyTo target={flyTarget} />
             <Recenter loc={userLoc} trigger={recenterN} />
-            {/* "You are here" only when we actually have GPS — a city-center
-                fallback pretending to be the user is worse than nothing. */}
             {hasGps && <Marker position={[userLoc.lat, userLoc.lng]} icon={meIcon(dog.photo)} zIndexOffset={1000} />}
-            {visibleParks.map((p) => {
-              let dogsHere = presenceByPark.get(p.id) ?? []
-              // Include MY dog in the park's circle when I'm checked in here.
-              if (myPark?.id === p.id && myPresence?.kind === 'at_park') {
-                dogsHere = [{ id: 'me', dogPhoto: dog.photo, presence: myPresence } as Friend, ...dogsHere]
-              }
-              const est = busyEstimate(p.dailyVisitors, now)
-              const icon = dogsHere.length > 0 ? dogsIcon(dogsHere, est) : parkIcon(myPark?.id === p.id)
-              return (
-                <Marker
-                  key={p.id}
-                  position={[p.lat, p.lng]}
-                  icon={icon}
-                  zIndexOffset={dogsHere.length > 0 ? 500 : 0}
-                  eventHandlers={{ click: () => setOpenPark(p) }}
-                />
-              )
-            })}
+            {parkMarkerData.map(({ p, dogsHere, est, mine }) => (
+              <Marker
+                key={p.id}
+                position={[p.lat, p.lng]}
+                icon={dogsHere.length > 0 ? dogsIcon(dogsHere, est) : parkIcon(mine)}
+                zIndexOffset={dogsHere.length > 0 ? 500 : 0}
+                eventHandlers={{ click: () => setOpenPark(p) }}
+              />
+            ))}
           </MapContainer>
         )}
 
