@@ -11,8 +11,9 @@ export const ADMIN_EMAILS = ['omerdd04@gmail.com']
 
 // Auto check-in: when the app opens (or returns to foreground) with GPS inside
 // this radius of a park, the user is automatically marked "at the park" for an
-// hour — no tap needed. ~500m ≈ a square kilometer centered on the park.
-export const AUTO_CHECKIN_RADIUS_M = 500
+// hour — no tap needed. Kept tight (~inside the park itself) so walking PAST
+// a park, or living 300m from one, never triggers a false check-in.
+export const AUTO_CHECKIN_RADIUS_M = 100
 
 // Academy is gated for launch: locked tab that teases what's coming.
 export const ACADEMY_LOCKED = true

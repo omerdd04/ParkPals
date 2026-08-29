@@ -3,6 +3,7 @@
   "short_name": "ParkPals",
   "description": "מפת פארקי כלבים ארצית, חברים לכלב, אקדמיה ומד שמחה",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f1faf0",
   "theme_color": "#3ea033",

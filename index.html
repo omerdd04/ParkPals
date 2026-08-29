@@ -15,9 +15,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>ParkPals · פארק כלבים חברתי</title>
+    <style>
+      /* Boot splash — replaced the moment React mounts. */
+      #boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#f1faf0;font-family:Rubik,system-ui,sans-serif}
+      #boot .paw{font-size:56px;animation:pawbeat 1s ease-in-out infinite}
+      #boot .nm{font-weight:800;font-size:22px;color:#21521e}
+      #boot .ld{font-size:13px;color:#6b8a6e}
+      @keyframes pawbeat{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot">
+        <div class="paw">🐾</div>
+        <div class="nm">ParkPals</div>
+        <div class="ld">רק רגע, מלטפים את הכלב…</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

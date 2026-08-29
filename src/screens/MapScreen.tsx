@@ -94,7 +94,7 @@ function ensureRTL() {
 }
 
 function GLMap({
-  center, hasGps, meLoc, dogPhoto, markers, markersSig, flyTarget, recenterN, onOpenPark, onFail,
+  center, hasGps, meLoc, dogPhoto, markers, markersSig, flyTarget, recenterN, onOpenPark, onFail, onReady,
 }: {
   center: { lat: number; lng: number }
   hasGps: boolean
@@ -106,6 +106,7 @@ function GLMap({
   recenterN: number
   onOpenPark: (p: Park) => void
   onFail: () => void
+  onReady?: () => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -135,7 +136,7 @@ function GLMap({
     }
     map.dragRotate.disable()
     map.touchZoomRotate.disableRotation()
-    map.on('load', () => { loaded = true; setGlReady(true) })
+    map.on('load', () => { loaded = true; setGlReady(true); onReady?.() })
     map.on('error', (e: unknown) => { void e; if (!loaded) { onFail() } })
     const t = window.setTimeout(() => { if (!loaded) onFail() }, 8000)
     const ro = new ResizeObserver(() => map.resize())
@@ -301,8 +302,10 @@ export default function MapScreen() {
   // Full-screen map: hides the header (greeting, search, stories) for max map.
   const [fullMap, setFullMap] = useState(false)
 
-  // Basemap fallback: vector (OpenFreeMap) unless it fails → raster (Esri).
+  // Basemap fallback: vector (OpenFreeMap) unless it fails → raster (OSM).
   const [vectorFailed, setVectorFailed] = useState(false)
+  // Friendly loading state while the basemap boots (instead of a blank pane).
+  const [baseReady, setBaseReady] = useState(false)
 
   // Admin: edit parks straight from the map
   const [isAdmin, setIsAdmin] = useState(false)
@@ -500,7 +503,8 @@ export default function MapScreen() {
             flyTarget={flyTarget}
             recenterN={recenterN}
             onOpenPark={setOpenPark}
-            onFail={() => setVectorFailed(true)}
+            onFail={() => { setVectorFailed(true); setBaseReady(true) }}
+            onReady={() => setBaseReady(true)}
           />
         )}
         {mapReady && (MAPTILER_KEY || vectorFailed) && (
@@ -520,6 +524,15 @@ export default function MapScreen() {
               />
             ))}
           </MapContainer>
+        )}
+
+        {/* Map loading animation — covers the pane until the basemap is up. */}
+        {!baseReady && !vectorFailed && !MAPTILER_KEY && (
+          <div className="absolute inset-0 z-[450] flex flex-col items-center justify-center gap-3 bg-[#f1faf0]">
+            <div className="text-5xl" style={{ animation: 'pawbeat 1s ease-in-out infinite' }}>🐾</div>
+            <div className="text-sm font-semibold text-park-600">טוענים את המפה…</div>
+            <style>{`@keyframes pawbeat{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}`}</style>
+          </div>
         )}
 
         {myPark && myPresence && (
