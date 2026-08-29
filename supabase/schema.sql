@@ -92,6 +92,35 @@ create table if not exists public.complaints (
 );
 
 -- =============================================================================
+-- 6) parks — community/admin-added dog parks (merged with the app's built-in
+--    list). Only the admin account may add or edit; everyone signed-in reads.
+-- =============================================================================
+create table if not exists public.parks (
+  id             text        primary key default replace(gen_random_uuid()::text, '-', ''),
+  name           text        not null,
+  city           text        not null,
+  area           text,
+  lat            double precision not null,
+  lng            double precision not null,
+  fenced         boolean     not null default true,
+  has_water      boolean     not null default false,
+  size           text        not null default 'medium',   -- small | medium | large
+  source         text        not null default 'admin',
+  daily_visitors int         not null default 20,
+  created_by     uuid        references public.profiles (id) on delete set null,
+  created_at     timestamptz not null default now()
+);
+
+-- The admin account (can add/edit/delete parks from inside the app).
+-- To add more admins later, extend this function's list.
+create or replace function public.is_admin()
+returns boolean
+language sql stable
+as $$
+  select coalesce(auth.jwt() ->> 'email', '') in ('omerdd04@gmail.com')
+$$;
+
+-- =============================================================================
 -- Row Level Security — lock every table, then open only what the pilot needs.
 -- =============================================================================
 alter table public.profiles     enable row level security;
@@ -99,6 +128,17 @@ alter table public.presence     enable row level security;
 alter table public.friend_links enable row level security;
 alter table public.messages     enable row level security;
 alter table public.complaints   enable row level security;
+alter table public.parks        enable row level security;
+
+-- ---- parks -------------------------------------------------------------------
+-- Everyone signed in sees parks; only the admin writes.
+drop policy if exists parks_read on public.parks;
+create policy parks_read on public.parks
+  for select to authenticated using (true);
+
+drop policy if exists parks_admin_write on public.parks;
+create policy parks_admin_write on public.parks
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- ---- profiles ----------------------------------------------------------------
 -- Any signed-in user can read profiles (needed to look up a friend by code and

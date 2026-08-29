@@ -11,6 +11,7 @@ import type {
   DogProfile,
   Friend,
   OwnerProfile,
+  Park,
   Presence,
   PresenceKind,
   QuickMsgType,
@@ -108,6 +109,8 @@ interface Store {
   setFriends: (friends: Friend[]) => void
   setChats: (chats: ChatMessage[]) => void
   appendChat: (msg: ChatMessage) => void
+  serverParks: Park[]
+  setServerParks: (parks: Park[]) => void
   setPresence: (parkId: string, kind: PresenceKind, sharesLocation: boolean) => void
   setUserLoc: (loc: { lat: number; lng: number } | null) => void
   setShareLocation: (on: boolean) => void
@@ -166,6 +169,8 @@ export const useStore = create<Store>()(
       setFriends: (friends) => set({ friends }),
       setChats: (chats) => set({ chats }),
       appendChat: (msg) => set((s) => ({ chats: [...s.chats, msg] })),
+      serverParks: [],
+      setServerParks: (parks) => set({ serverParks: parks }),
 
       setPresence: (parkId, kind, sharesLocation) => {
         // Single active presence: a new one replaces the previous (turn-on-only).

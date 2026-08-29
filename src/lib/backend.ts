@@ -6,6 +6,7 @@ import type {
   DogProfile,
   Friend,
   OwnerProfile,
+  Park,
   Presence,
   PresenceKind,
   QuickMsgType,
@@ -262,6 +263,80 @@ export async function sendChat(toId: string, type: QuickMsgType, parkName?: stri
   const uid = await currentUserId()
   if (!uid) return
   await supabase.from('messages').insert({ from_id: uid, to_id: toId, type, park_name: parkName ?? null })
+}
+
+// ---- Parks (admin) ----------------------------------------------------------
+export async function currentUserEmail(): Promise<string | null> {
+  if (!supabase) return null
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user.email ?? null
+}
+
+interface ParkRow {
+  id: string
+  name: string
+  city: string
+  area: string | null
+  lat: number
+  lng: number
+  fenced: boolean
+  has_water: boolean
+  size: string
+  source: string
+  daily_visitors: number
+}
+
+function rowToPark(r: ParkRow): Park {
+  return {
+    id: r.id,
+    name: r.name,
+    city: r.city,
+    area: r.area ?? undefined,
+    lat: r.lat,
+    lng: r.lng,
+    fenced: r.fenced,
+    hasWater: r.has_water,
+    size: (r.size as Park['size']) || 'medium',
+    source: 'municipal',
+    dailyVisitors: r.daily_visitors,
+  }
+}
+
+export async function loadParks(): Promise<Park[]> {
+  if (!supabase) return []
+  const { data } = await supabase.from('parks').select('*')
+  return (data ?? []).map((r) => rowToPark(r as ParkRow))
+}
+
+export async function addPark(p: {
+  name: string
+  city: string
+  area?: string
+  lat: number
+  lng: number
+  fenced: boolean
+  hasWater: boolean
+  size: Park['size']
+}): Promise<{ ok: boolean; message: string }> {
+  if (!supabase) return { ok: false, message: 'השרת לא מחובר' }
+  const uid = await currentUserId()
+  if (!uid) return { ok: false, message: 'לא מחובר' }
+  const { error } = await supabase.from('parks').insert({
+    name: p.name,
+    city: p.city,
+    area: p.area || null,
+    lat: p.lat,
+    lng: p.lng,
+    fenced: p.fenced,
+    has_water: p.hasWater,
+    size: p.size,
+    created_by: uid,
+  })
+  if (error) {
+    if (error.code === '42501') return { ok: false, message: 'אין לך הרשאת מנהל להוספת פארקים' }
+    return { ok: false, message: error.message }
+  }
+  return { ok: true, message: `הפארק "${p.name}" נוסף למפה! 🎉` }
 }
 
 // ---- Complaints -------------------------------------------------------------

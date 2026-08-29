@@ -152,12 +152,19 @@ export default function MapScreen() {
     [friends, now],
   )
 
+  // Built-in parks + parks added from the admin screen (deduped by id).
+  const serverParks = useStore((s) => s.serverParks)
+  const parks = useMemo(() => {
+    const ids = new Set(PARKS.map((p) => p.id))
+    return [...PARKS, ...serverParks.filter((p) => !ids.has(p.id))]
+  }, [serverParks])
+
   // Filters narrow which parks show on the map; search finds a park by name/city.
   const visibleParks = useMemo(
-    () => PARKS.filter((p) =>
+    () => parks.filter((p) =>
       (!fFenced || p.fenced) && (!fWater || p.hasWater) && (!fLarge || p.size === 'large'),
     ),
-    [fFenced, fWater, fLarge],
+    [parks, fFenced, fWater, fLarge],
   )
 
   const searchResults = useMemo(() => {

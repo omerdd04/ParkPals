@@ -3,7 +3,8 @@
 // - chat history + incoming messages in realtime (with notification + toast)
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import { loadFriends } from './backend'
+import { loadFriends, loadParks } from './backend'
+import { registerServerParks } from '../data/parks'
 import { useStore } from '../store'
 import type { ChatMessage, QuickMsgType } from '../types'
 
@@ -13,6 +14,12 @@ let pollTimer: number | null = null
 export async function refreshFriends(): Promise<void> {
   const friends = await loadFriends()
   useStore.getState().setFriends(friends)
+}
+
+export async function refreshParks(): Promise<void> {
+  const parks = await loadParks()
+  registerServerParks(parks) // for non-React helpers (parkById)
+  useStore.getState().setServerParks(parks)
 }
 
 async function loadRecentChats(userId: string): Promise<void> {
@@ -66,6 +73,7 @@ export async function startLiveSync(userId: string): Promise<void> {
   stopLiveSync()
 
   await refreshFriends()
+  await refreshParks()
   await loadRecentChats(userId)
 
   channel = supabase

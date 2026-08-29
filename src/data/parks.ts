@@ -53,8 +53,19 @@ export const CITIES = Array.from(new Set(PARKS.map((p) => p.city))).sort((a, b) 
   a.localeCompare(b, 'he'),
 )
 
+// Parks added through the backend (admin screen) get merged with the built-in
+// list. liveSync registers them here so non-React helpers (parkById) see them.
+let SERVER_PARKS: Park[] = []
+export function registerServerParks(list: Park[]): void {
+  SERVER_PARKS = list
+}
+export function allParks(): Park[] {
+  const ids = new Set(PARKS.map((p) => p.id))
+  return [...PARKS, ...SERVER_PARKS.filter((p) => !ids.has(p.id))]
+}
+
 export function parkById(id: string): Park | undefined {
-  return PARKS.find((p) => p.id === id)
+  return allParks().find((p) => p.id === id)
 }
 
 // Rough distance in km between two lat/lng points (haversine).

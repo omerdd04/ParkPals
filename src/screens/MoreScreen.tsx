@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formatCode, useStore } from '../store'
 import type { TextScale } from '../store'
 import { PARKS, CITIES } from '../data/parks'
-import { APP_NAME, CONTACT_EMAIL } from '../config'
+import { APP_NAME, CONTACT_EMAIL, ADMIN_EMAILS } from '../config'
 import Sheet from '../ui/Sheet'
 import DogAvatar from '../ui/DogAvatar'
 import { isSupabaseConfigured } from '../lib/supabase'
-import { signOut } from '../lib/backend'
+import { signOut, currentUserEmail, addPark } from '../lib/backend'
+import { refreshParks } from '../lib/liveSync'
 
 const CATEGORIES = ['ניקיון וזבל', 'גדר / שער שבור', 'חוסר במים / ברזייה', 'תאורה', 'ציוד פגום', 'בטיחות', 'אחר']
 const CONTACT_KINDS = [
@@ -42,6 +43,16 @@ export default function MoreScreen() {
   // contact form
   const [contactKind, setContactKind] = useState(CONTACT_KINDS[0].key)
   const [contactText, setContactText] = useState('')
+
+  // admin: add park
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showAddPark, setShowAddPark] = useState(false)
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    currentUserEmail().then((email) => {
+      if (email && ADMIN_EMAILS.includes(email.toLowerCase())) setIsAdmin(true)
+    })
+  }, [])
 
   function submitComplaint() {
     if (!parkName || !text.trim()) return
@@ -86,7 +97,12 @@ export default function MoreScreen() {
         <MenuItem emoji="📮" title="תיבת תלונות פארקים ארצית" subtitle="דווחו על בעיה — נעביר לעירייה" onClick={() => setShowComplaint(true)} />
         <MenuItem emoji="📋" title={`התלונות שלי (${complaints.length})`} subtitle="מעקב אחרי הדיווחים ששלחת" onClick={() => setShowHistory(true)} />
         <MenuItem emoji="⚙️" title="הגדרות ונגישות" subtitle="גודל טקסט, ניגודיות, הפחתת תנועה ועוד" onClick={() => setShowSettings(true)} />
+        {isAdmin && (
+          <MenuItem emoji="🛠️" title="הוספת פארק (מנהל)" subtitle="הוספת פארק חדש למפה הארצית" onClick={() => setShowAddPark(true)} />
+        )}
       </div>
+
+      {isAdmin && <AddParkSheet open={showAddPark} onClose={() => setShowAddPark(false)} />}
 
       <p className="text-center text-xs text-park-400 pt-2">{APP_NAME} · פארק כלבים חברתי · גרסה 0.1</p>
 
@@ -243,5 +259,86 @@ function ToggleRow({ label, desc, on, onChange }: { label: string; desc: string;
         <div className={`w-5 h-5 rounded-full bg-white transition-transform ${on ? '-translate-x-5' : ''}`} />
       </div>
     </button>
+  )
+}
+
+// ---- Admin: add a park to the national map ----
+function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const showToast = useStore((s) => s.showToast)
+  const [name, setName] = useState('')
+  const [city, setCity] = useState('')
+  const [area, setArea] = useState('')
+  const [coords, setCoords] = useState('') // "31.7905, 34.6455" — paste from Google Maps
+  const [fenced, setFenced] = useState(true)
+  const [hasWater, setHasWater] = useState(false)
+  const [size, setSize] = useState<'small' | 'medium' | 'large'>('medium')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const parsed = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(coords)
+  const lat = parsed ? parseFloat(parsed[1]) : null
+  const lng = parsed ? parseFloat(parsed[2]) : null
+  const valid = name.trim().length >= 2 && city.trim().length >= 2 && lat !== null && lng !== null
+
+  function useMyLocation() {
+    if (!('geolocation' in navigator)) { setErr('אין גישה למיקום במכשיר הזה'); return }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`),
+      () => setErr('לא הצלחנו לקבל מיקום — אפשר להדביק ידנית מגוגל מפות'),
+      { timeout: 8000 },
+    )
+  }
+
+  async function submit() {
+    if (!valid || busy) return
+    setBusy(true)
+    setErr('')
+    const res = await addPark({
+      name: name.trim(), city: city.trim(), area: area.trim() || undefined,
+      lat: lat!, lng: lng!, fenced, hasWater, size,
+    })
+    setBusy(false)
+    if (res.ok) {
+      showToast({ text: res.message, photo: '🎉' })
+      setName(''); setArea(''); setCoords('')
+      void refreshParks()
+      onClose()
+    } else {
+      setErr(res.message)
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="הוספת פארק למפה 🛠️">
+      <div className="space-y-3">
+        <input className="w-full rounded-2xl border border-park-200 p-3" placeholder="שם הפארק (למשל: גינת כלבים הדקל)" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <input className="rounded-2xl border border-park-200 p-3" placeholder="עיר" value={city} onChange={(e) => setCity(e.target.value)} />
+          <input className="rounded-2xl border border-park-200 p-3" placeholder="שכונה (לא חובה)" value={area} onChange={(e) => setArea(e.target.value)} />
+        </div>
+        <div>
+          <div className="flex gap-2">
+            <input dir="ltr" className="flex-1 rounded-2xl border border-park-200 p-3 font-mono text-sm" placeholder="31.7905, 34.6455" value={coords} onChange={(e) => setCoords(e.target.value)} />
+            <button onClick={useMyLocation} className="rounded-2xl bg-park-100 px-3 text-sm font-semibold text-park-700">📍 אני כאן</button>
+          </div>
+          <p className="mt-1 text-[11px] text-park-400">
+            טיפ: בגוגל מפות לחיצה ארוכה על הפארק ← ולחיצה על המספרים מעתיקה אותם. הדביקו כאן.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setFenced(!fenced)} className={`chip border ${fenced ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>🚧 מגודר</button>
+          <button onClick={() => setHasWater(!hasWater)} className={`chip border ${hasWater ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>💧 ברזייה</button>
+          {(['small', 'medium', 'large'] as const).map((s) => (
+            <button key={s} onClick={() => setSize(s)} className={`chip border ${size === s ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`}>
+              {s === 'small' ? 'קטן' : s === 'medium' ? 'בינוני' : 'גדול'}
+            </button>
+          ))}
+        </div>
+        {err && <p className="text-xs text-red-500">{err}</p>}
+        <button className="btn-primary w-full" disabled={!valid || busy} onClick={submit}>
+          {busy ? 'מוסיף…' : 'הוספה למפה הארצית'}
+        </button>
+      </div>
+    </Sheet>
   )
 }
