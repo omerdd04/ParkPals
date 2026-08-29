@@ -39,8 +39,11 @@ export default function Login() {
           <div className="text-4xl mb-2">📧</div>
           <p className="font-semibold text-park-700">{message}</p>
           <p className="mt-2 text-xs text-park-400">
-            פתחו את המייל שנשלח אל <span className="font-medium">{email}</span> ולחצו על הקישור.
-            אפשר לסגור את המסך הזה.
+            פתחו את המייל שנשלח אל <span className="font-medium">{email}</span> ולחצו על הקישור
+            <b> במכשיר שבו תשתמשו באפליקציה</b>.
+          </p>
+          <p className="mt-2 text-[11px] text-park-400">
+            ⚠️ הקישור חד-פעמי ותקף לזמן קצר — אם פג, בקשו חדש כאן.
           </p>
           <button
             onClick={() => { setStatus('idle'); setMessage('') }}

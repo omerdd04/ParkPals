@@ -85,13 +85,26 @@ function redirectUrl(): string {
   return window.location.origin + import.meta.env.BASE_URL
 }
 
+// Map Supabase auth errors to friendly Hebrew.
+function authErrorHe(message: string): string {
+  const m = message.toLowerCase()
+  const secs = /after (\d+) seconds?/.exec(m)?.[1]
+  if (m.includes('rate limit') || m.includes('you can only request'))
+    return secs
+      ? `מטעמי אבטחה אפשר לבקש קישור חדש רק בעוד ${secs} שניות ⏳`
+      : 'נשלחו כמה מיילים ברצף — מטעמי אבטחה צריך להמתין קצת (עד שעה) לפני קישור חדש ⏳'
+  if (m.includes('invalid') && m.includes('email')) return 'כתובת האימייל לא תקינה'
+  if (m.includes('expired')) return 'הקישור פג תוקף — בקשו קישור חדש'
+  return message
+}
+
 export async function sendMagicLink(email: string): Promise<{ ok: boolean; message: string }> {
   if (!supabase) return { ok: false, message: 'השרת לא מחובר' }
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim(),
     options: { emailRedirectTo: redirectUrl() },
   })
-  if (error) return { ok: false, message: error.message }
+  if (error) return { ok: false, message: authErrorHe(error.message) }
   return { ok: true, message: 'שלחנו קישור כניסה לאימייל שלך 📧' }
 }
 
