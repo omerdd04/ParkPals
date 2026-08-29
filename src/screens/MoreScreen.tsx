@@ -5,6 +5,8 @@ import { PARKS, CITIES } from '../data/parks'
 import { APP_NAME, CONTACT_EMAIL } from '../config'
 import Sheet from '../ui/Sheet'
 import DogAvatar from '../ui/DogAvatar'
+import { isSupabaseConfigured } from '../lib/supabase'
+import { signOut } from '../lib/backend'
 
 const CATEGORIES = ['ניקיון וזבל', 'גדר / שער שבור', 'חוסר במים / ברזייה', 'תאורה', 'ציוד פגום', 'בטיחות', 'אחר']
 const CONTACT_KINDS = [
@@ -193,6 +195,11 @@ export default function MoreScreen() {
 
           <div className="border-t border-park-100 pt-4">
             <div className="text-xs font-semibold text-park-500 mb-2">אזור אישי</div>
+            {isSupabaseConfigured && (
+              <button onClick={() => { void signOut() }} className="block mb-3 text-sm text-park-600 underline underline-offset-2">
+                התנתקות מהחשבון
+              </button>
+            )}
             <button onClick={() => { setShowSettings(false); setConfirmReset(true) }} className="text-sm text-pink-600 underline underline-offset-2">
               מחיקת חשבון ואיפוס
             </button>

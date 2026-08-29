@@ -102,6 +102,7 @@ interface Store {
 
   // actions
   completeOnboarding: (owner: OwnerProfile, dog: DogProfile) => void
+  hydrateProfile: (owner: OwnerProfile, dog: DogProfile, onboarded: boolean) => void
   setPresence: (parkId: string, kind: PresenceKind, sharesLocation: boolean) => void
   setUserLoc: (loc: { lat: number; lng: number } | null) => void
   setShareLocation: (on: boolean) => void
@@ -152,6 +153,10 @@ export const useStore = create<Store>()(
           owner: { ...owner, personalCode: owner.personalCode || genCode() },
           dog,
         }),
+
+      // Load profile coming from the backend as the source of truth (used right
+      // after sign-in). Only marks onboarded when the backend has a real name.
+      hydrateProfile: (owner, dog, onboarded) => set({ owner, dog, onboarded }),
 
       setPresence: (parkId, kind, sharesLocation) =>
         // Single active presence: a new one replaces the previous (turn-on-only).

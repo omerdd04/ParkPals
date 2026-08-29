@@ -19,5 +19,10 @@ yarn-error.log*
 # TS build info
 *.tsbuildinfo
 
+# Local environment (Supabase keys) — never commit .env; .env.example is tracked
+.env
+.env.*
+!.env.example
+
 # Generated single-file preview bundle
 preview.html

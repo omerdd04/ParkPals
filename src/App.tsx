@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store'
 import { cityCenter } from './data/parks'
 import Onboarding from './screens/Onboarding'
@@ -7,7 +7,11 @@ import FriendsScreen from './screens/FriendsScreen'
 import AcademyScreen from './screens/AcademyScreen'
 import DogScreen from './screens/DogScreen'
 import MoreScreen from './screens/MoreScreen'
+import Login from './screens/Login'
 import Toast from './ui/Toast'
+import { isSupabaseConfigured } from './lib/supabase'
+import { useSession } from './lib/useSession'
+import { loadMyProfile, saveMyProfile } from './lib/backend'
 
 export type Tab = 'map' | 'friends' | 'dog' | 'academy' | 'more'
 
@@ -28,7 +32,31 @@ export default function App() {
   const setUserLoc = useStore((s) => s.setUserLoc)
   const settings = useStore((s) => s.settings)
   const ownerCity = useStore((s) => s.owner.city)
+  const owner = useStore((s) => s.owner)
+  const dog = useStore((s) => s.dog)
+  const hydrateProfile = useStore((s) => s.hydrateProfile)
   const [tab, setTab] = useState<Tab>('map')
+
+  // ---- Backend session (no-op unless Supabase is configured) ----
+  const { loading: authLoading, userId } = useSession()
+  const hydratedFor = useRef<string | null>(null)
+
+  // On sign-in, load the profile from the backend as the source of truth.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !userId) return
+    if (hydratedFor.current === userId) return
+    hydratedFor.current = userId
+    loadMyProfile().then((p) => {
+      if (p) hydrateProfile(p.owner, p.dog, p.onboarded)
+    })
+  }, [userId, hydrateProfile])
+
+  // Once loaded, keep the backend profile in sync with local edits.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !userId || !onboarded) return
+    if (hydratedFor.current !== userId) return // wait until first load completes
+    void saveMyProfile(owner, dog)
+  }, [owner, dog, onboarded, userId])
 
   // Apply accessibility settings to the document root.
   useEffect(() => {
@@ -57,6 +85,18 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboarded, shareLocation])
+
+  // Backend gate: when connected, require sign-in before the app.
+  if (isSupabaseConfigured) {
+    if (authLoading) {
+      return (
+        <div className="mx-auto max-w-md h-full flex flex-col items-center justify-center bg-[var(--ground)] text-center">
+          <div className="text-5xl animate-pulse">🐾</div>
+        </div>
+      )
+    }
+    if (!userId) return <Login />
+  }
 
   if (!onboarded) return <Onboarding />
 
