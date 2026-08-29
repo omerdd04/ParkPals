@@ -310,8 +310,14 @@ export default function MapScreen() {
         {mapReady && (
           <MapContainer center={[userLoc.lat, userLoc.lng]} zoom={14} className="absolute inset-0" zoomControl={false} attributionControl={false}>
             {showTiles && (
+              /* CARTO Voyager basemap — modern, clean look (Apple/Google-like)
+                 and retina-sharp ({r}) on phones, replacing the dated default
+                 OSM style. Data © OpenStreetMap contributors, tiles © CARTO
+                 (credited in Settings → copyright). */
               <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                subdomains="abcd"
+                maxZoom={20}
                 attribution=""
                 eventHandlers={{
                   tileload: () => { tileStats.current.loaded++ },

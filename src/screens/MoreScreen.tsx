@@ -250,7 +250,8 @@ export default function MoreScreen() {
             <div className="text-sm font-bold text-park-800 mb-1">© זכויות יוצרים ומפה</div>
             <p className="text-xs text-park-500 leading-relaxed">
               נתוני המפה: © מתנדבי OpenStreetMap, ברישיון ODbL (openstreetmap.org/copyright).
-              רקע המפה המעוצב והאיורים — נוצרו על ידי {APP_NAME}. אימוג'ים באדיבות ספקי המערכת.
+              אריחי המפה: © CARTO (carto.com/attributions). האיורים — נוצרו על ידי {APP_NAME}.
+              אימוג'ים באדיבות ספקי המערכת.
             </p>
           </div>
 
