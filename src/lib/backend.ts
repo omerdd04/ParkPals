@@ -345,7 +345,10 @@ export async function addPark(p: {
     created_by: uid,
   })
   if (error) {
-    if (error.code === '42501') return { ok: false, message: 'אין לך הרשאת מנהל להוספת פארקים' }
+    if (error.code === '42501') return { ok: false, message: 'אין הרשאת מנהל — ודאו שקובץ ה-SQL העדכני הורץ (הוא מגדיר אתכם כמנהל)' }
+    if (error.code === '42P01') return { ok: false, message: 'טבלת הפארקים עוד לא קיימת בשרת — צריך להריץ את קובץ ה-SQL העדכני' }
+    if (error.code === 'PGRST204' || /column .* does not exist|schema cache/i.test(error.message))
+      return { ok: false, message: 'השרת מכיר גרסה ישנה של הטבלה — הריצו שוב את קובץ ה-SQL העדכני' }
     return { ok: false, message: error.message }
   }
   return { ok: true, message: `הפארק "${p.name}" נוסף למפה! 🎉` }

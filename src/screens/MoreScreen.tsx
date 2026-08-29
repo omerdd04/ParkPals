@@ -278,10 +278,23 @@ function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  const parsed = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(coords)
-  const lat = parsed ? parseFloat(parsed[1]) : null
-  const lng = parsed ? parseFloat(parsed[2]) : null
-  const valid = name.trim().length >= 2 && city.trim().length >= 2 && lat !== null && lng !== null
+  // Lenient coordinate parsing: accepts "31.79, 34.64", "31.79812° N, 34.63955° E",
+  // and even a pasted Google-Maps link — the first two plausible numbers win.
+  function parseCoords(input: string): { lat: number; lng: number } | null {
+    const nums = (input.match(/-?\d{1,3}\.\d+/g) ?? []).map(Number)
+    for (let i = 0; i + 1 < nums.length; i++) {
+      const [a, b] = [nums[i], nums[i + 1]]
+      if (Math.abs(a) <= 90 && Math.abs(b) <= 180 && Math.abs(a) > 1 && Math.abs(b) > 1) return { lat: a, lng: b }
+    }
+    return null
+  }
+  const parsed = parseCoords(coords)
+  const lat = parsed?.lat ?? null
+  const lng = parsed?.lng ?? null
+  const nameOk = name.trim().length >= 2
+  const cityOk = city.trim().length >= 2
+  const valid = nameOk && cityOk && lat !== null && lng !== null
+  const missing = !nameOk ? 'חסר שם פארק' : !cityOk ? 'חסרה עיר' : lat === null ? 'המיקום לא זוהה — הדביקו למשל: 31.79812, 34.63955' : ''
 
   function useMyLocation() {
     if (!('geolocation' in navigator)) { setErr('אין גישה למיקום במכשיר הזה'); return }
@@ -341,6 +354,9 @@ function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void })
           ))}
         </div>
         {err && <p className="text-xs text-red-500">{err}</p>}
+        {!valid && !err && coords.trim().length + name.trim().length > 0 && (
+          <p className="text-xs text-amber-600">{missing}</p>
+        )}
         <button className="btn-primary w-full" disabled={!valid || busy} onClick={submit}>
           {busy ? 'מוסיף…' : 'הוספה למפה הארצית'}
         </button>
