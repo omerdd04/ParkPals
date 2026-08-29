@@ -414,7 +414,14 @@ function ParkDetail({
         {park.fenced && <span className="chip bg-park-100 text-park-700">🚧 מגודר</span>}
         {park.hasWater && <span className="chip bg-park-100 text-park-700">💧 ברזייה</span>}
         <span className="chip bg-park-100 text-park-700">{park.size === 'large' ? 'גדול' : park.size === 'medium' ? 'בינוני' : 'קטן'}</span>
+        {park.approx && <span className="chip bg-amber-50 text-amber-700 border border-amber-200">📍 מיקום משוער</span>}
       </div>
+
+      {park.approx && (
+        <p className="text-[11px] text-park-400 -mt-2">
+          הנעץ מוצב ברמת השכונה. מכירים את המיקום המדויק? ספרו לנו דרך "צור קשר" במסך עוד 🙏
+        </p>
+      )}
 
       {estimate > 0 && (
         <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">

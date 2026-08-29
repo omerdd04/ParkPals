@@ -55,12 +55,12 @@ function seedFriends(): Friend[] {
     {
       id: 'f3', ownerName: 'מאיה', dogName: "צ'אנס", dogPhoto: '🐩', city: 'אשדוד',
       personalCode: '8ZC2', favorite: false, score: 61,
-      presence: { parkId: 'ash-rovad-2', kind: 'heading', sharesLocation: false, startedAt: now - 3 * MIN },
+      presence: { parkId: 'ash-rovad-1', kind: 'heading', sharesLocation: false, startedAt: now - 3 * MIN },
     },
     {
       id: 'f4', ownerName: 'אורי', dogName: 'בלה', dogPhoto: '🐶', city: 'אשדוד',
       personalCode: '5RT6', favorite: true, score: 93,
-      presence: { parkId: 'ash-lido', kind: 'at_park', sharesLocation: true, startedAt: now - 25 * MIN },
+      presence: { parkId: 'ash-elisheva', kind: 'at_park', sharesLocation: true, startedAt: now - 25 * MIN },
     },
     {
       id: 'f5', ownerName: 'שירה', dogName: 'מוקה', dogPhoto: '🐕‍🦺', city: 'אשדוד',

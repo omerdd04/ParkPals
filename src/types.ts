@@ -38,6 +38,7 @@ export interface Park {
   size: 'small' | 'medium' | 'large'
   source: 'municipal' | 'osm'
   dailyVisitors: number // approx dogs that pass through on an average day (drives busy estimate)
+  approx?: boolean // pin is a neighborhood-level estimate awaiting an exact fix
 }
 
 export type PresenceKind = 'at_park' | 'heading' // at park now, or heading in 15 min

@@ -4,12 +4,22 @@ import type { Park } from '../types'
 // In production this would be sourced from municipal open-data + OpenStreetMap.
 // `dailyVisitors` is an approximate baseline used for the busy-hours estimate.
 export const PARKS: Park[] = [
-  // ---- Ashdod (with Rova Dalet / אזור ד') ----
-  { id: 'ash-rovad-1', name: "גינת כלבים רובע ד'", city: 'אשדוד', area: "רובע ד'", lat: 31.7905, lng: 34.6455, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 50 },
-  { id: 'ash-rovad-2', name: "פארק כלבים רובע ד' (הפקאן)", city: 'אשדוד', area: "רובע ד'", lat: 31.7938, lng: 34.6498, fenced: true, hasWater: false, size: 'medium', source: 'osm', dailyVisitors: 28 },
-  { id: 'ash-lido', name: 'גינת כלבים לידו', city: 'אשדוד', area: "רובע א'", lat: 31.7940, lng: 34.6410, fenced: true, hasWater: true, size: 'medium', source: 'municipal', dailyVisitors: 34 },
-  { id: 'ash-yudbet', name: "גינת כלבים רובע י\"ב", city: 'אשדוד', area: "רובע י\"ב", lat: 31.8085, lng: 34.6520, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 40 },
-  { id: 'ash-hof', name: 'טיילת החוף – אזור כלבים', city: 'אשדוד', area: 'הטיילת', lat: 31.7998, lng: 34.6330, fenced: false, hasWater: false, size: 'large', source: 'osm', dailyVisitors: 22 },
+  // ---- Ashdod — the 12 official municipal dog parks (one per quarter), from
+  // the municipality's "גינות כלבים בעיר" page. Coordinates are quarter-level
+  // estimates (approx: true) until pinned exactly by the admin/community;
+  // Gan Meir Yaari (rova dalet, the pilot area) keeps the verified pin.
+  { id: 'ash-rovad-1', name: 'גן מאיר יערי – גינת כלבים', city: 'אשדוד', area: "רובע ד'", lat: 31.7905, lng: 34.6455, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 50 },
+  { id: 'ash-elisheva', name: 'גן אלישבע – גינת כלבים', city: 'אשדוד', area: "רובע א'", lat: 31.8075, lng: 34.6385, fenced: true, hasWater: false, size: 'large', source: 'municipal', dailyVisitors: 30, approx: true },
+  { id: 'ash-lohamim', name: 'גן הלוחמים – גינת כלבים', city: 'אשדוד', area: "רובע ב'", lat: 31.8050, lng: 34.6490, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 24, approx: true },
+  { id: 'ash-avraham', name: 'גן אברהם – גינת כלבים', city: 'אשדוד', area: "רובע ה'", lat: 31.7950, lng: 34.6550, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 24, approx: true },
+  { id: 'ash-labiov', name: 'גן לביוב – גינת כלבים', city: 'אשדוד', area: "רובע ו'", lat: 31.7875, lng: 34.6575, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 24, approx: true },
+  { id: 'ash-sayfan', name: 'גן סייפן – גינת כלבים', city: 'אשדוד', area: "רובע ח'", lat: 31.7790, lng: 34.6400, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 26, approx: true },
+  { id: 'ash-morim', name: 'גן הסתדרות המורים – גינת כלבים', city: 'אשדוד', area: "רובע ט'", lat: 31.7830, lng: 34.6510, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 22, approx: true },
+  { id: 'ash-atikot', name: 'גן עתיקות – גינת כלבים', city: 'אשדוד', area: "רובע י'", lat: 31.7740, lng: 34.6460, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 22, approx: true },
+  { id: 'ash-golda', name: 'גן גולדה – גינת כלבים', city: 'אשדוד', area: 'רובע י"א', lat: 31.7770, lng: 34.6350, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 32, approx: true },
+  { id: 'ash-safra', name: 'גן ספרא – גינת כלבים', city: 'אשדוד', area: 'רובע י"ב', lat: 31.7690, lng: 34.6480, fenced: true, hasWater: false, size: 'large', source: 'municipal', dailyVisitors: 28, approx: true },
+  { id: 'ash-grin', name: 'גן אבנר גרין – גינת כלבים', city: 'אשדוד', area: 'רובע י"ג', lat: 31.7625, lng: 34.6530, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 20, approx: true },
+  { id: 'ash-merkazi', name: 'גן מרכזי – גינת כלבים', city: 'אשדוד', area: 'רובע ט"ו', lat: 31.7580, lng: 34.6595, fenced: true, hasWater: false, size: 'medium', source: 'municipal', dailyVisitors: 20, approx: true },
 
   // ---- Tel Aviv ----
   { id: 'tlv-hayarkon', name: 'גינת כלבים פארק הירקון', city: 'תל אביב', lat: 32.0997, lng: 34.8003, fenced: true, hasWater: true, size: 'large', source: 'municipal', dailyVisitors: 65 },
