@@ -77,6 +77,7 @@ interface Toast {
   id: string
   text: string
   photo?: string
+  friendId?: string // tap opens the chat with this friend
 }
 
 export type TextScale = 'normal' | 'large' | 'xlarge'
@@ -134,6 +135,10 @@ interface Store {
   pushNotification: (n: Omit<AppNotification, 'id' | 'at' | 'read'>) => void
   showToast: (t: Omit<Toast, 'id'>) => void
   clearToast: () => void
+  // Cross-screen request: "open the chat with this friend" (set by tapping a toast)
+  openChatFriendId: string | null
+  requestOpenChat: (friendId: string) => void
+  clearOpenChat: () => void
   setSettings: (patch: Partial<A11ySettings>) => void
   resetAll: () => void
 }
@@ -291,6 +296,9 @@ export const useStore = create<Store>()(
 
       showToast: (t) => set({ toast: { ...t, id: uid() } }),
       clearToast: () => set({ toast: null }),
+      openChatFriendId: null,
+      requestOpenChat: (friendId) => set({ openChatFriendId: friendId, toast: null }),
+      clearOpenChat: () => set({ openChatFriendId: null }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
 

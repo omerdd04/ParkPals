@@ -28,6 +28,16 @@ export default function FriendsScreen() {
   const [addMsg, setAddMsg] = useState<{ ok: boolean; message: string } | null>(null)
   const [chatFriend, setChatFriend] = useState<Friend | null>(null)
 
+  // A tapped message-toast requests this chat to open.
+  const openChatFriendId = useStore((s) => s.openChatFriendId)
+  const clearOpenChat = useStore((s) => s.clearOpenChat)
+  useEffect(() => {
+    if (!openChatFriendId) return
+    const f = friends.find((fr) => fr.id === openChatFriendId)
+    if (f) setChatFriend(f)
+    clearOpenChat()
+  }, [openChatFriendId, friends, clearOpenChat])
+
   const myFullCode = formatCode(owner.personalCode)
 
   useEffect(() => {
@@ -138,9 +148,9 @@ export default function FriendsScreen() {
 
       <Sheet open={showAdd} onClose={() => { setShowAdd(false); setAddMsg(null) }} title="הוספת חבר">
         <div className="space-y-3">
-          <p className="text-sm text-park-600">הקלידו את 4 התווים של הקוד האישי — הקידומת <span className="font-mono">DP-</span> נוספת לבד.</p>
+          <p className="text-sm text-park-600">הקלידו את 4 התווים של הקוד האישי — הקידומת <span className="font-mono">PP-</span> נוספת לבד.</p>
           <div className="flex items-center gap-2 rounded-2xl border border-park-200 p-2 pr-4">
-            <span className="font-mono text-lg text-park-400">DP-</span>
+            <span className="font-mono text-lg text-park-400">PP-</span>
             <input
               value={codeInput}
               onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}

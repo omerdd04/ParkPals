@@ -4,6 +4,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import { loadFriends, loadParks } from './backend'
+import { playDing } from './ding'
 import { registerServerParks } from '../data/parks'
 import { useStore } from '../store'
 import type { ChatMessage, QuickMsgType } from '../types'
@@ -65,7 +66,8 @@ function onIncomingMessage(row: Record<string, unknown>): void {
   s.appendChat(msg)
   const who = friend?.dogName ?? 'חבר'
   s.pushNotification({ text: `${who}: ${MSG_SHORT[msg.type] ?? 'הודעה חדשה'}`, kind: 'reply' })
-  s.showToast({ text: `${who}: ${MSG_SHORT[msg.type] ?? 'הודעה חדשה'}`, photo: friend?.dogPhoto })
+  s.showToast({ text: `${who}: ${MSG_SHORT[msg.type] ?? 'הודעה חדשה'}`, photo: friend?.dogPhoto, friendId: msg.friendId })
+  playDing()
 }
 
 export async function startLiveSync(userId: string): Promise<void> {

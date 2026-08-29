@@ -10,7 +10,9 @@ import Sheet from '../ui/Sheet'
 import QuickChat from './QuickChat'
 import NotificationsButton from './NotificationsButton'
 import { PARK_QUESTIONS } from '../data/parkQuestions'
-import { submitParkFeedback } from '../lib/backend'
+import { submitParkFeedback, currentUserEmail, updatePark, deletePark } from '../lib/backend'
+import { ADMIN_EMAILS } from '../config'
+import { refreshParks } from '../lib/liveSync'
 
 // Empty park: a simple tree pin.
 function parkIcon(mine: boolean): L.DivIcon {
@@ -130,6 +132,15 @@ export default function MapScreen() {
   const dismissFeedbackAsk = useStore((s) => s.dismissFeedbackAsk)
   const showToast = useStore((s) => s.showToast)
   const [surveyParkId, setSurveyParkId] = useState<string | null>(null)
+
+  // Admin: edit parks straight from the map
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [editPark, setEditPark] = useState<Park | null>(null)
+  useEffect(() => {
+    currentUserEmail().then((email) => {
+      if (email && ADMIN_EMAILS.includes(email.toLowerCase())) setIsAdmin(true)
+    })
+  }, [])
   // Show real OSM street tiles; if they fail to load (blocked network / sandbox),
   // remove the layer so the CSS street-grid basemap shows cleanly instead of the
   // browser painting the failed tiles black.
@@ -405,6 +416,15 @@ export default function MapScreen() {
         </button>
       </div>
 
+      {/* Admin: edit park */}
+      {isAdmin && (
+        <EditParkSheet
+          park={editPark}
+          onClose={() => setEditPark(null)}
+          onSaved={(msg) => { setEditPark(null); showToast({ text: msg, photo: '🛠️' }); void refreshParks() }}
+        />
+      )}
+
       {/* Full park-condition survey */}
       <ParkSurveySheet
         parkId={surveyParkId}
@@ -420,6 +440,7 @@ export default function MapScreen() {
             estimate={busyEstimate(openPark.dailyVisitors, now)}
             distance={distanceKm(userLoc.lat, userLoc.lng, openPark.lat, openPark.lng)}
             mineHere={myPark?.id === openPark.id}
+            onAdminEdit={isAdmin ? () => { setEditPark(openPark); setOpenPark(null) } : undefined}
             onSetStatus={(kind, shares) => {
               setPresence(openPark.id, kind, shares)
               setOpenPark(null)
@@ -449,7 +470,7 @@ export default function MapScreen() {
 }
 
 function ParkDetail({
-  park, present, estimate, distance, mineHere, onSetStatus, onChat,
+  park, present, estimate, distance, mineHere, onSetStatus, onChat, onAdminEdit,
 }: {
   park: Park
   present: Friend[]
@@ -458,6 +479,7 @@ function ParkDetail({
   mineHere: boolean
   onSetStatus: (kind: 'at_park' | 'heading', shares: boolean) => void
   onChat: (f: Friend) => void
+  onAdminEdit?: () => void
 }) {
   return (
     <div className="space-y-4">
@@ -504,6 +526,11 @@ function ParkDetail({
         <button className="btn-soft w-full" onClick={() => onSetStatus('at_park', true)}>📍 אני בפארק + שתף מיקום חי</button>
         <button className="btn-ghost w-full" onClick={() => onSetStatus('heading', false)}>🚶 יוצא לכאן ב-15 הדקות הקרובות</button>
         {mineHere && <p className="text-center text-xs text-park-500">אתה כבר מסומן כאן ✓</p>}
+        {onAdminEdit && (
+          <button className="w-full text-center text-xs font-semibold text-park-500 underline underline-offset-2 pt-1" onClick={onAdminEdit}>
+            🛠️ עריכת פארק (מנהל)
+          </button>
+        )}
       </div>
     </div>
   )
@@ -606,6 +633,136 @@ function ParkSurveySheet({ parkId, onClose, onDone }: { parkId: string | null; o
           {busy ? 'שולח…' : 'שליחת השאלון'}
         </button>
       </div>
+    </Sheet>
+  )
+}
+
+// Admin-only: edit or delete a park in place. Works for parks stored in the
+// backend; built-in seed parks (other cities) can't be edited from here.
+function EditParkSheet({ park, onClose, onSaved }: { park: Park | null; onClose: () => void; onSaved: (msg: string) => void }) {
+  const isServerPark = !!park && !PARKS.some((p) => p.id === park.id)
+  const [name, setName] = useState('')
+  const [city, setCity] = useState('')
+  const [area, setArea] = useState('')
+  const [coords, setCoords] = useState('')
+  const [fenced, setFenced] = useState(true)
+  const [hasWater, setHasWater] = useState(false)
+  const [shade, setShade] = useState(false)
+  const [lighting, setLighting] = useState(false)
+  const [benches, setBenches] = useState(false)
+  const [size, setSize] = useState<'small' | 'medium' | 'large'>('medium')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [confirmDel, setConfirmDel] = useState(false)
+
+  useEffect(() => {
+    if (!park) return
+    setName(park.name); setCity(park.city); setArea(park.area ?? '')
+    setCoords(`${park.lat.toFixed(5)}, ${park.lng.toFixed(5)}`)
+    setFenced(park.fenced); setHasWater(park.hasWater)
+    setShade(!!park.shade); setLighting(!!park.lighting); setBenches(!!park.benches)
+    setSize(park.size); setErr(''); setConfirmDel(false)
+  }, [park])
+
+  function parseCoords(input: string): { lat: number; lng: number } | null {
+    const dms = [...input.matchAll(/(\d{1,3})°\s*(\d{1,2})['′]\s*([\d.]+)["″]?\s*([NSEW])?/gi)]
+    if (dms.length >= 2) {
+      const toDec = (m: RegExpMatchArray) => {
+        const v = Number(m[1]) + Number(m[2]) / 60 + Number(m[3]) / 3600
+        return /[SW]/i.test(m[4] ?? '') ? -v : v
+      }
+      const a = toDec(dms[0]); const b = toDec(dms[1])
+      if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lng: b }
+    }
+    const nums = (input.match(/-?\d{1,3}\.\d+/g) ?? []).map(Number)
+    for (let i = 0; i + 1 < nums.length; i++) {
+      const [a, b] = [nums[i], nums[i + 1]]
+      if (Math.abs(a) <= 90 && Math.abs(b) <= 180 && Math.abs(a) > 1 && Math.abs(b) > 1) return { lat: a, lng: b }
+    }
+    return null
+  }
+
+  async function save() {
+    if (!park || busy) return
+    const parsed = parseCoords(coords)
+    if (!parsed) { setErr('המיקום לא זוהה — הדביקו למשל: 31.79812, 34.63955'); return }
+    setBusy(true); setErr('')
+    const res = await updatePark(park.id, {
+      name: name.trim(), city: city.trim(), area: area.trim() || undefined,
+      lat: parsed.lat, lng: parsed.lng, fenced, hasWater, size, shade, lighting, benches,
+    })
+    setBusy(false)
+    if (res.ok) onSaved(res.message)
+    else setErr(res.message)
+  }
+
+  async function doDelete() {
+    if (!park || busy) return
+    setBusy(true)
+    const res = await deletePark(park.id)
+    setBusy(false)
+    if (res.ok) onSaved(res.message)
+    else setErr(res.message)
+  }
+
+  const chip = (on: boolean) => `chip border ${on ? 'bg-park-500 text-white border-park-500' : 'bg-white text-park-700 border-park-200'}`
+
+  return (
+    <Sheet open={!!park} onClose={onClose} title={`עריכת פארק 🛠️`}>
+      {!isServerPark ? (
+        <p className="text-sm text-park-600 py-4">
+          הפארק הזה הוא חלק מהמאגר המובנה של האפליקציה ולא ניתן לעריכה מכאן.
+          אפשר להוסיף גרסה מתוקנת דרך "הוספת פארק" ולבקש מקלוד להסיר את הישן.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <input className="w-full rounded-2xl border border-park-200 p-3" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="rounded-2xl border border-park-200 p-3" value={city} onChange={(e) => setCity(e.target.value)} placeholder="עיר" />
+            <input className="rounded-2xl border border-park-200 p-3" value={area} onChange={(e) => setArea(e.target.value)} placeholder="שכונה" />
+          </div>
+          <div>
+            <div className="flex gap-2">
+              <input dir="ltr" className="flex-1 rounded-2xl border border-park-200 p-3 font-mono text-sm" value={coords} onChange={(e) => setCoords(e.target.value)} />
+              <button
+                onClick={() => {
+                  navigator.geolocation?.getCurrentPosition(
+                    (pos) => setCoords(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`),
+                    () => setErr('לא הצלחנו לקבל מיקום'),
+                    { enableHighAccuracy: true, timeout: 8000 },
+                  )
+                }}
+                className="rounded-2xl bg-park-100 px-3 text-sm font-semibold text-park-700"
+              >📍 אני כאן</button>
+            </div>
+            <p className="mt-1 text-[11px] text-park-400">להזזת הפארק — הדביקו מיקום חדש (כל פורמט) או עמדו בפארק ולחצו "אני כאן".</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setFenced(!fenced)} className={chip(fenced)}>🚧 מגודר</button>
+            <button onClick={() => setHasWater(!hasWater)} className={chip(hasWater)}>💧 ברזייה</button>
+            <button onClick={() => setShade(!shade)} className={chip(shade)}>🌳 צל</button>
+            <button onClick={() => setLighting(!lighting)} className={chip(lighting)}>💡 תאורה</button>
+            <button onClick={() => setBenches(!benches)} className={chip(benches)}>🪑 ספסלים</button>
+            {(['small', 'medium', 'large'] as const).map((s) => (
+              <button key={s} onClick={() => setSize(s)} className={chip(size === s)}>
+                {s === 'small' ? 'קטן' : s === 'medium' ? 'בינוני' : 'גדול'}
+              </button>
+            ))}
+          </div>
+          {err && <p className="text-xs text-red-500">{err}</p>}
+          <button className="btn-primary w-full" disabled={busy} onClick={save}>{busy ? 'שומר…' : 'שמירת שינויים'}</button>
+          {confirmDel ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button className="btn-ghost" onClick={() => setConfirmDel(false)}>ביטול</button>
+              <button className="btn bg-pink-500 text-white" disabled={busy} onClick={doDelete}>כן, למחוק</button>
+            </div>
+          ) : (
+            <button className="w-full text-center text-xs text-pink-600 underline underline-offset-2" onClick={() => setConfirmDel(true)}>
+              מחיקת הפארק מהמפה
+            </button>
+          )}
+        </div>
+      )}
     </Sheet>
   )
 }

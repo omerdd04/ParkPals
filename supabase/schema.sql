@@ -199,10 +199,17 @@ create policy presence_write_own on public.presence
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ---- friend_links ------------------------------------------------------------
--- You see and manage only your own links.
+-- You see and manage only your own links...
 drop policy if exists friend_links_own on public.friend_links;
 create policy friend_links_own on public.friend_links
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ...but adding a friend is MUTUAL: when you add someone by their code, a
+-- reverse row is inserted so they see you too. That reverse insert (their
+-- list, you as the friend) is what this policy allows.
+drop policy if exists friend_links_insert_mutual on public.friend_links;
+create policy friend_links_insert_mutual on public.friend_links
+  for insert to authenticated with check (user_id = auth.uid() or friend_id = auth.uid());
 
 -- ---- messages ----------------------------------------------------------------
 -- You read messages you sent or received; you may send only as yourself.
@@ -215,10 +222,15 @@ create policy messages_send on public.messages
   for insert to authenticated with check (from_id = auth.uid());
 
 -- ---- complaints --------------------------------------------------------------
--- You may file a complaint as yourself; reads are not exposed to clients.
+-- You may file a complaint as yourself; the admin can read them all (in-app
+-- complaints screen shows who filed what and when).
 drop policy if exists complaints_insert on public.complaints;
 create policy complaints_insert on public.complaints
   for insert to authenticated with check (user_id = auth.uid());
+
+drop policy if exists complaints_admin_read on public.complaints;
+create policy complaints_admin_read on public.complaints
+  for select to authenticated using (public.is_admin());
 
 -- =============================================================================
 -- Realtime — stream presence + messages changes to subscribed clients.

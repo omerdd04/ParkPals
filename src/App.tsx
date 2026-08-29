@@ -14,6 +14,7 @@ import { isSupabaseConfigured } from './lib/supabase'
 import { useSession } from './lib/useSession'
 import { loadMyProfile, saveMyProfile } from './lib/backend'
 import { startLiveSync, stopLiveSync } from './lib/liveSync'
+import { unlockAudio } from './lib/ding'
 
 export type Tab = 'map' | 'friends' | 'dog' | 'academy' | 'more'
 
@@ -38,6 +39,19 @@ export default function App() {
   const dog = useStore((s) => s.dog)
   const hydrateProfile = useStore((s) => s.hydrateProfile)
   const [tab, setTab] = useState<Tab>('map')
+
+  // Unlock audio on the first touch so incoming-message chimes can play (iOS).
+  useEffect(() => {
+    const unlock = () => { unlockAudio() }
+    window.addEventListener('pointerdown', unlock, { once: true })
+    return () => window.removeEventListener('pointerdown', unlock)
+  }, [])
+
+  // Tapping a chat toast anywhere jumps to the friends tab (which opens the chat).
+  const openChatFriendId = useStore((s) => s.openChatFriendId)
+  useEffect(() => {
+    if (openChatFriendId) setTab('friends')
+  }, [openChatFriendId])
 
   // ---- Backend session (no-op unless Supabase is configured) ----
   const { loading: authLoading, userId } = useSession()

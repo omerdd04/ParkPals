@@ -226,6 +226,10 @@ export async function addFriendByCode(rawCode: string): Promise<{ ok: boolean; m
     .from('friend_links')
     .upsert({ user_id: uid, friend_id: match.id }, { onConflict: 'user_id,friend_id', ignoreDuplicates: true })
   if (error) return { ok: false, message: error.message }
+  // Friendship is mutual: also add me to THEIR list so they see me right away.
+  await supabase
+    .from('friend_links')
+    .upsert({ user_id: match.id, friend_id: uid }, { onConflict: 'user_id,friend_id', ignoreDuplicates: true })
   return { ok: true, message: `${match.dog_name} של ${match.owner_name} נוסף לחברים!` }
 }
 
@@ -352,6 +356,88 @@ export async function addPark(p: {
     return { ok: false, message: error.message }
   }
   return { ok: true, message: `הפארק "${p.name}" נוסף למפה! 🎉` }
+}
+
+// Admin: edit an existing (server-stored) park.
+export async function updatePark(
+  id: string,
+  p: {
+    name: string
+    city: string
+    area?: string
+    lat: number
+    lng: number
+    fenced: boolean
+    hasWater: boolean
+    size: Park['size']
+    shade?: boolean
+    lighting?: boolean
+    benches?: boolean
+  },
+): Promise<{ ok: boolean; message: string }> {
+  if (!supabase) return { ok: false, message: 'השרת לא מחובר' }
+  const { error } = await supabase.from('parks').update({
+    name: p.name,
+    city: p.city,
+    area: p.area || null,
+    lat: p.lat,
+    lng: p.lng,
+    fenced: p.fenced,
+    has_water: p.hasWater,
+    size: p.size,
+    shade: p.shade ?? false,
+    lighting: p.lighting ?? false,
+    benches: p.benches ?? false,
+  }).eq('id', id)
+  if (error) return { ok: false, message: error.message }
+  return { ok: true, message: 'הפארק עודכן ✅' }
+}
+
+export async function deletePark(id: string): Promise<{ ok: boolean; message: string }> {
+  if (!supabase) return { ok: false, message: 'השרת לא מחובר' }
+  const { error } = await supabase.from('parks').delete().eq('id', id)
+  if (error) return { ok: false, message: error.message }
+  return { ok: true, message: 'הפארק נמחק' }
+}
+
+// Admin: read all complaints, with who filed each and when.
+export interface AdminComplaint {
+  id: string
+  parkName: string
+  city: string
+  category: string
+  text: string
+  at: number
+  byOwner: string
+  byDog: string
+}
+
+export async function loadComplaintsAdmin(): Promise<AdminComplaint[]> {
+  if (!supabase) return []
+  const { data } = await supabase
+    .from('complaints')
+    .select('id, user_id, park_name, city, category, text, created_at')
+    .order('created_at', { ascending: false })
+    .limit(200)
+  if (!data) return []
+  const ids = [...new Set(data.map((c) => c.user_id).filter(Boolean))] as string[]
+  const { data: profs } = ids.length
+    ? await supabase.from('profiles').select('id, owner_name, dog_name').in('id', ids)
+    : { data: [] }
+  const byId = new Map((profs ?? []).map((p) => [p.id as string, p]))
+  return data.map((c) => {
+    const prof = c.user_id ? byId.get(c.user_id as string) : undefined
+    return {
+      id: c.id as string,
+      parkName: c.park_name as string,
+      city: (c.city as string) ?? '',
+      category: (c.category as string) ?? '',
+      text: (c.text as string) ?? '',
+      at: new Date(c.created_at as string).getTime(),
+      byOwner: (prof?.owner_name as string) || 'לא ידוע',
+      byDog: (prof?.dog_name as string) || '',
+    }
+  })
 }
 
 // ---- Park feedback (any signed-in user) -------------------------------------

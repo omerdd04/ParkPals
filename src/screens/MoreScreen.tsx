@@ -6,7 +6,8 @@ import { APP_NAME, CONTACT_EMAIL, ADMIN_EMAILS } from '../config'
 import Sheet from '../ui/Sheet'
 import DogAvatar from '../ui/DogAvatar'
 import { isSupabaseConfigured } from '../lib/supabase'
-import { signOut, currentUserEmail, addPark } from '../lib/backend'
+import { signOut, currentUserEmail, addPark, loadComplaintsAdmin } from '../lib/backend'
+import type { AdminComplaint } from '../lib/backend'
 import { refreshParks } from '../lib/liveSync'
 
 const CATEGORIES = ['ניקיון וזבל', 'גדר / שער שבור', 'חוסר במים / ברזייה', 'תאורה', 'ציוד פגום', 'בטיחות', 'אחר']
@@ -49,6 +50,13 @@ export default function MoreScreen() {
   // admin: add park
   const [isAdmin, setIsAdmin] = useState(false)
   const [showAddPark, setShowAddPark] = useState(false)
+  const [showAdminComplaints, setShowAdminComplaints] = useState(false)
+  const [adminComplaints, setAdminComplaints] = useState<AdminComplaint[] | null>(null)
+  function openAdminComplaints() {
+    setShowAdminComplaints(true)
+    setAdminComplaints(null)
+    void loadComplaintsAdmin().then(setAdminComplaints)
+  }
   useEffect(() => {
     if (!isSupabaseConfigured) return
     currentUserEmail().then((email) => {
@@ -102,9 +110,37 @@ export default function MoreScreen() {
         {isAdmin && (
           <MenuItem emoji="🛠️" title="הוספת פארק (מנהל)" subtitle="הוספת פארק חדש למפה הארצית" onClick={() => setShowAddPark(true)} />
         )}
+        {isAdmin && (
+          <MenuItem emoji="📥" title="תלונות שהתקבלו (מנהל)" subtitle="כל הדיווחים — מי, מתי ועל מה" onClick={openAdminComplaints} />
+        )}
       </div>
 
       {isAdmin && <AddParkSheet open={showAddPark} onClose={() => setShowAddPark(false)} />}
+
+      {/* Admin: all received complaints */}
+      {isAdmin && (
+        <Sheet open={showAdminComplaints} onClose={() => setShowAdminComplaints(false)} title="תלונות שהתקבלו 📥">
+          {adminComplaints === null ? (
+            <p className="text-center text-sm text-park-400 py-6">טוען…</p>
+          ) : adminComplaints.length === 0 ? (
+            <p className="text-center text-sm text-park-400 py-6">אין תלונות עדיין 🎉</p>
+          ) : (
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto no-scrollbar">
+              {adminComplaints.map((c) => (
+                <div key={c.id} className="rounded-2xl border border-park-100 p-3">
+                  <div className="flex items-center justify-between text-xs text-park-400">
+                    <span>{new Date(c.at).toLocaleDateString('he-IL')} · {new Date(c.at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="font-semibold text-park-600">{c.byOwner}{c.byDog ? ` (${c.byDog})` : ''}</span>
+                  </div>
+                  <div className="mt-1 text-sm font-bold text-park-800">{c.parkName}{c.city ? ` · ${c.city}` : ''}</div>
+                  <div className="text-xs font-semibold text-amber-700">{c.category}</div>
+                  <p className="mt-1 text-sm text-park-700 whitespace-pre-wrap">{c.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Sheet>
+      )}
 
       <p className="text-center text-xs text-park-400 pt-2">{APP_NAME} · פארק כלבים חברתי · גרסה 0.1</p>
 
