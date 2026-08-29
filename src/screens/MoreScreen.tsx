@@ -278,9 +278,20 @@ function AddParkSheet({ open, onClose }: { open: boolean; onClose: () => void })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  // Lenient coordinate parsing: accepts "31.79, 34.64", "31.79812° N, 34.63955° E",
-  // and even a pasted Google-Maps link — the first two plausible numbers win.
+  // Lenient coordinate parsing. Accepts, in order of priority:
+  //   1. DMS as copied from Google Maps: 31°48'33.4"N 34°38'25.7"E
+  //   2. Decimal: "31.79, 34.64" / "31.79812° N, 34.63955° E" / a maps link
   function parseCoords(input: string): { lat: number; lng: number } | null {
+    const dms = [...input.matchAll(/(\d{1,3})°\s*(\d{1,2})['′]\s*([\d.]+)["″]?\s*([NSEW])?/gi)]
+    if (dms.length >= 2) {
+      const toDec = (m: RegExpMatchArray) => {
+        const v = Number(m[1]) + Number(m[2]) / 60 + Number(m[3]) / 3600
+        return /[SW]/i.test(m[4] ?? '') ? -v : v
+      }
+      const a = toDec(dms[0])
+      const b = toDec(dms[1])
+      if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lng: b }
+    }
     const nums = (input.match(/-?\d{1,3}\.\d+/g) ?? []).map(Number)
     for (let i = 0; i + 1 < nums.length; i++) {
       const [a, b] = [nums[i], nums[i + 1]]
